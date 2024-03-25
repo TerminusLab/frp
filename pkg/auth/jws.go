@@ -21,23 +21,22 @@ import (
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
-//	"github.com/fatedier/frp/pkg/util/util"
 )
 
 type JwsAuthSetterVerifier struct {
 	additionalAuthScopes []v1.AuthScope
-	jws                string
+	jws                  string
 }
 
 func NewJwsAuth(additionalAuthScopes []v1.AuthScope, jws string) *JwsAuthSetterVerifier {
 	return &JwsAuthSetterVerifier{
 		additionalAuthScopes: additionalAuthScopes,
-		jws:                jws,
+		jws:                  jws,
 	}
 }
 
 func (auth *JwsAuthSetterVerifier) SetLogin(loginMsg *msg.Login) error {
-	//loginMsg.PrivilegeKey = util.GetAuthKey(auth.token, loginMsg.Timestamp)
+	// loginMsg.PrivilegeKey = util.GetAuthKey(auth.token, loginMsg.Timestamp)
 	loginMsg.PrivilegeKey = auth.jws
 	return nil
 }
@@ -48,7 +47,7 @@ func (auth *JwsAuthSetterVerifier) SetPing(pingMsg *msg.Ping) error {
 	}
 
 	pingMsg.Timestamp = time.Now().Unix()
-	//pingMsg.PrivilegeKey = util.GetAuthKey(auth.token, pingMsg.Timestamp)
+	// pingMsg.PrivilegeKey = util.GetAuthKey(auth.token, pingMsg.Timestamp)
 	pingMsg.PrivilegeKey = auth.jws
 	return nil
 }
@@ -59,18 +58,18 @@ func (auth *JwsAuthSetterVerifier) SetNewWorkConn(newWorkConnMsg *msg.NewWorkCon
 	}
 
 	newWorkConnMsg.Timestamp = time.Now().Unix()
-	//newWorkConnMsg.PrivilegeKey = util.GetAuthKey(auth.token, newWorkConnMsg.Timestamp)
+	// newWorkConnMsg.PrivilegeKey = util.GetAuthKey(auth.token, newWorkConnMsg.Timestamp)
 	newWorkConnMsg.PrivilegeKey = auth.jws
 	return nil
 }
 
 func (auth *JwsAuthSetterVerifier) VerifyLogin(m *msg.Login) error {
 	/*
-	if !util.ConstantTimeEqString(util.GetAuthKey(auth.token, m.Timestamp), m.PrivilegeKey) {
-		return fmt.Errorf("token in login doesn't match token from configuration")
-	}
+		if !util.ConstantTimeEqString(util.GetAuthKey(auth.token, m.Timestamp), m.PrivilegeKey) {
+			return fmt.Errorf("token in login doesn't match token from configuration")
+		}
 	*/
-	if result, err := Verify(auth.jws, m.PrivilegeKey, m.User); result == false {
+	if result, err := Verify(auth.jws, m.PrivilegeKey, m.User); !result {
 		return fmt.Errorf("token in login is Invalid (%v)", err)
 	}
 	return nil
@@ -82,9 +81,9 @@ func (auth *JwsAuthSetterVerifier) VerifyPing(m *msg.Ping) error {
 	}
 
 	/*
-	if !util.ConstantTimeEqString(util.GetAuthKey(auth.token, m.Timestamp), m.PrivilegeKey) {
-		return fmt.Errorf("token in heartbeat doesn't match token from configuration")
-	}
+		if !util.ConstantTimeEqString(util.GetAuthKey(auth.token, m.Timestamp), m.PrivilegeKey) {
+			return fmt.Errorf("token in heartbeat doesn't match token from configuration")
+		}
 	*/
 	return nil
 }
@@ -95,9 +94,9 @@ func (auth *JwsAuthSetterVerifier) VerifyNewWorkConn(m *msg.NewWorkConn) error {
 	}
 
 	/*
-	if !util.ConstantTimeEqString(util.GetAuthKey(auth.token, m.Timestamp), m.PrivilegeKey) {
-		return fmt.Errorf("token in NewWorkConn doesn't match token from configuration")
-	}
+		if !util.ConstantTimeEqString(util.GetAuthKey(auth.token, m.Timestamp), m.PrivilegeKey) {
+			return fmt.Errorf("token in NewWorkConn doesn't match token from configuration")
+		}
 	*/
 	return nil
 }
