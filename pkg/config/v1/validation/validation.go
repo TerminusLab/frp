@@ -31,6 +31,7 @@ var (
 	}
 
 	SupportedAuthMethods = []v1.AuthMethod{
+		"jws",
 		"token",
 		"oidc",
 	}

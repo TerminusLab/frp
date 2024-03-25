@@ -42,6 +42,7 @@ const (
 type AuthMethod string
 
 const (
+	AuthMethodJws   AuthMethod = "jws"
 	AuthMethodToken AuthMethod = "token"
 	AuthMethodOIDC  AuthMethod = "oidc"
 )
