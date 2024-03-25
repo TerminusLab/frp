@@ -46,13 +46,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASS }}
 
-#      - name: Login to the GPR
-#        uses: docker/login-action@v3
-#        with:
-#          registry: ghcr.io
-#          username: ${{ github.repository_owner }}
-#          password: ${{ secrets.GPR_TOKEN }}
-
       # prepare image tags
       - name: Prepare Image Tags
         run: |
@@ -60,8 +53,6 @@ jobs:
           echo "DOCKERFILE_FRPS_PATH=dockerfiles/Dockerfile-for-frps" >> $GITHUB_ENV
           echo "TAG_FRPC=aboveos/frpc:${{ env.TAG_NAME }}" >> $GITHUB_ENV
           echo "TAG_FRPS=aboveos/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
-          #echo "TAG_FRPC_GPR=ghcr.io/fatedier/frpc:${{ env.TAG_NAME }}" >> $GITHUB_ENV
-          #echo "TAG_FRPS_GPR=ghcr.io/fatedier/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
 
       - name: Build and push frpc
         uses: docker/build-push-action@v4
@@ -72,7 +63,6 @@ jobs:
           push: true
           tags: |
             ${{ env.TAG_FRPC }}
-            #${{ env.TAG_FRPC_GPR }}
 
       - name: Build and push frps
         uses: docker/build-push-action@v5
@@ -83,4 +73,3 @@ jobs:
           push: true
           tags: |
             ${{ env.TAG_FRPS }}
-            #${{ env.TAG_FRPS_GPR }}
