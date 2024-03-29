@@ -70,7 +70,7 @@ func (auth *JwsAuthSetterVerifier) VerifyLogin(m *msg.Login) error {
 		}
 	*/
 	if result, err := Verify(auth.jws, m.PrivilegeKey, m.User); !result {
-		return fmt.Errorf("token in login is Invalid (%v)", err)
+		return fmt.Errorf("jws in login is Invalid (%v)", err)
 	}
 	return nil
 }
