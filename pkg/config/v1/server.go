@@ -125,7 +125,7 @@ func (c *ServerConfig) Complete() {
 type AuthServerConfig struct {
 	Method           AuthMethod           `json:"method,omitempty"`
 	AdditionalScopes []AuthScope          `json:"additionalScopes,omitempty"`
-	JwsVerifyUrl     string               `json:"jwsVerifyUrl,omitempty"`
+	JwsVerifyURL     string               `json:"jwsVerifyUrl,omitempty"`
 	Token            string               `json:"token,omitempty"`
 	OIDC             AuthOIDCServerConfig `json:"oidc,omitempty"`
 }
