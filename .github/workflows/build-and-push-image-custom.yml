@@ -51,7 +51,7 @@ jobs:
         run: |
           echo "DOCKERFILE_FRPC_PATH=dockerfiles/Dockerfile-for-frpc" >> $GITHUB_ENV
           echo "DOCKERFILE_FRPS_PATH=dockerfiles/Dockerfile-for-frps" >> $GITHUB_ENV
-          echo "TAG_FRPC=aboveos/frpc:${{ env.TAG_NAME }}" >> $GITHUB_ENV
+          echo "TAG_FRPC=beclab/frpc-base:${{ env.TAG_NAME }}" >> $GITHUB_ENV
           echo "TAG_FRPS=aboveos/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
 
       - name: Build and push frpc
