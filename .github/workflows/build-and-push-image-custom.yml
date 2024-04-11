@@ -1,4 +1,4 @@
-name: Build Image and Publish to Dockerhub & GPR
+name: Build Image and Publish to Dockerhub
 
 on:
   push:
