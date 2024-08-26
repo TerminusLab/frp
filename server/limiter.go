@@ -30,15 +30,16 @@ func NewLimiterManager() *LimiterManager {
 	}
 }
 
-func (lm *LimiterManager) GetBandwidth() (bandwidth map[string]int64) {
+func (lm *LimiterManager) GetBandwidth() map[string]int64 {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 
+	bandwidth := make(map[string]int64)
 	for key, value := range lm.rateLimiter {
 		bandwidth[key] = int64(value.Limit())
 	}
 
-	return
+	return bandwidth
 }
 
 func (lm *LimiterManager) GetRateLimiter(terminusName string, limitBytes int64, burstBytes int) *rate.Limiter {
