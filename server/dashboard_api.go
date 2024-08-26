@@ -438,6 +438,10 @@ func (svr *Service) updateLimiters(w http.ResponseWriter, r *http.Request) {
 	go svr.limiterManager.UpdateLimiterByTerminusNames(terminusNames)
 }
 
+type GetBandwidthResp struct {
+	BandwidthLimit       map[string]int64  `json:"bandwidthLimit"`
+}
+
 // /api/bandwidth
 func (svr *Service) bandwidth(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
@@ -452,9 +456,13 @@ func (svr *Service) bandwidth(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	log.Infof("Http request: [%s]", r.URL.Path)
+	w.Header().Set("Content-Type", "application/json")
 
 	bandwidth := svr.limiterManager.GetBandwidth()
+	bandwidthResp := GetBandwidthResp{
+		BandwidthLimit: bandwidth,
+	}
 
-	buf, _ := json.Marshal(&bandwidth)
+	buf, _ := json.Marshal(&bandwidthResp)
 	res.Msg = string(buf)
 }
