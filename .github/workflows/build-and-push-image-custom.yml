@@ -59,7 +59,7 @@ jobs:
         with:
           context: .
           file: ./dockerfiles/Dockerfile-for-frpc
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ env.TAG_FRPC }}
