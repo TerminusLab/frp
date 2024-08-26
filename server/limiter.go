@@ -19,7 +19,6 @@ import (
 )
 
 type LimiterManager struct {
-	clusterUser map[string]string
 	rateLimiter map[string]*rate.Limiter
 
 	mu sync.RWMutex
@@ -27,12 +26,22 @@ type LimiterManager struct {
 
 func NewLimiterManager() *LimiterManager {
 	return &LimiterManager{
-		clusterUser: make(map[string]string),
 		rateLimiter: make(map[string]*rate.Limiter),
 	}
 }
 
-func (lm *LimiterManager) GetRateLimiter(terminusName string, limitBytes int64, burstBytes int) * rate.Limiter {
+func (lm *LimiterManager) GetBandwidth() (bandwidth map[string]int64) {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+
+	for key, value := range lm.rateLimiter {
+		bandwidth[key] = int64(value.Limit())
+	}
+
+	return
+}
+
+func (lm *LimiterManager) GetRateLimiter(terminusName string, limitBytes int64, burstBytes int) *rate.Limiter {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 
@@ -59,55 +68,6 @@ func (lm *LimiterManager) UpdateLimiterByGroup(terminusNames [] string, limitByt
 		}
 	}
 }
-
-
-func (lm *LimiterManager) AddRateLimiter(terminusId, terminusName string, limitBytes int64, burstBytes int) *rate.Limiter {
-	lm.mu.Lock()
-	defer lm.mu.Unlock()
-/*
-	var limiter *rate.Limiter
-	if terminusId != terminusName {
-		if l, ok := lm.rateLimiters[terminusName][terminusName] {
-			limiter = l
-			delete(lm.rateLimiters[terminusName]
-		}
-	}
-	*/
-	/*
-
-	if al, ok := lm.clusterUser[terminusId]; !ok {
-		lm.rateLimiter[terminusId] = make(map[string]*rate.Limiter)
-	} else {
-		for _, l := range al {
-			l.SetLimit(rate.Limit(float64(limitBytes)))
-			l.SetBurst(int(burstBytes))
-		}
-	}
-
-	if l, ok := lm.rateLimiters[terminusId][terminusName]; !ok {
-		if limiter == nil {
-			limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), burstBytes)
-		}
-		lm.rateLimiters[terminusId][terminusName] = limiter
-
-		return limiter
-	} else {
-		return l
-	}
-	*/
-	return nil
-}
-
-/*
-func (lm *LimiterManager) Get(terminusId, terminusName string) (l *rate.Limiter, ok bool) {
-	lm.mu.RLock()
-	defer lm.mu.RUnlock()
-
-	l, ok = lm.rateLimiter[terminusId][terminusName]
-
-	return
-}
-*/
 
 func (lm *LimiterManager) UpdateLoop() {
 	xl := xlog.New()

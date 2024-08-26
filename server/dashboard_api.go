@@ -58,6 +58,7 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	subRouter.HandleFunc("/api/proxies", svr.deleteProxies).Methods("DELETE")
 
 	subRouter.HandleFunc("/api/bandwidth", svr.updateLimiters).Methods("POST")
+	subRouter.HandleFunc("/api/bandwidth", svr.bandwidth).Methods("GET")
 
 	// view
 	subRouter.Handle("/favicon.ico", http.FileServer(helper.AssetsFS)).Methods("GET")
@@ -435,4 +436,25 @@ func (svr *Service) updateLimiters(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go svr.limiterManager.UpdateLimiterByTerminusNames(terminusNames)
+}
+
+// /api/bandwidth
+func (svr *Service) bandwidth(w http.ResponseWriter, r *http.Request) {
+	res := GeneralResponse{Code: 200}
+
+	log.Infof("Http request: [%s]", r.URL.Path)
+	defer func() {
+		log.Infof("Http response [%s]: code [%d]", r.URL.Path, res.Code)
+		w.WriteHeader(res.Code)
+		if len(res.Msg) > 0 {
+			_, _ = w.Write([]byte(res.Msg))
+		}
+	}()
+
+	log.Infof("Http request: [%s]", r.URL.Path)
+
+	bandwidth := svr.limiterManager.GetBandwidth()
+
+	buf, _ := json.Marshal(&bandwidth)
+	res.Msg = string(buf)
 }
