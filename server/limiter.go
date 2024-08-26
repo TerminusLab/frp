@@ -48,6 +48,7 @@ func (lm *LimiterManager) GetRateLimiter(terminusName string, limitBytes int64, 
 
 	if l, ok := lm.rateLimiter[terminusName]; !ok {
 		limiter := rate.NewLimiter(rate.Limit(float64(limitBytes)), burstBytes)
+		lm.rateLimiter[terminusName] = limiter
 
 		return limiter
 	} else {
