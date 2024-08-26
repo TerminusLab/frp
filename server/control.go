@@ -23,6 +23,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/pkg/auth"
@@ -148,6 +150,8 @@ type Control struct {
 	xl     *xlog.Logger
 	ctx    context.Context
 	doneCh chan struct{}
+
+	limiter *rate.Limiter
 }
 
 // TODO(fatedier): Referencing the implementation of frpc, encapsulate the input parameters as SessionContext.
@@ -161,6 +165,7 @@ func NewControl(
 	ctlConnEncrypted bool,
 	loginMsg *msg.Login,
 	serverCfg *v1.ServerConfig,
+	limiter *rate.Limiter,
 ) (*Control, error) {
 	poolCount := loginMsg.PoolCount
 	if poolCount > int(serverCfg.Transport.MaxPoolCount) {
@@ -182,6 +187,7 @@ func NewControl(
 		xl:            xlog.FromContextSafe(ctx),
 		ctx:           ctx,
 		doneCh:        make(chan struct{}),
+		limiter:       limiter,
 	}
 	ctl.lastPing.Store(time.Now())
 
@@ -480,6 +486,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		GetWorkConnFn:      ctl.GetWorkConn,
 		Configurer:         pxyConf,
 		ServerCfg:          ctl.serverCfg,
+		Limiter:            ctl.limiter,
 	})
 	if err != nil {
 		return remoteAddr, err

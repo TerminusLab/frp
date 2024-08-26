@@ -279,16 +279,17 @@ type Options struct {
 	GetWorkConnFn      GetWorkConnFn
 	Configurer         v1.ProxyConfigurer
 	ServerCfg          *v1.ServerConfig
+	Limiter            *rate.Limiter
 }
 
 func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
 	configurer := options.Configurer
 	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(configurer.GetBaseConfig().Name)
 
-	var limiter *rate.Limiter
+	//	var limiter *rate.Limiter
 	limitBytes := configurer.GetBaseConfig().Transport.BandwidthLimit.Bytes()
 	if limitBytes > 0 && configurer.GetBaseConfig().Transport.BandwidthLimitMode == types.BandwidthLimitModeServer {
-		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
+		//		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
 	}
 
 	basePxy := BaseProxy{
@@ -298,7 +299,7 @@ func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
 		poolCount:     options.PoolCount,
 		getWorkConnFn: options.GetWorkConnFn,
 		serverCfg:     options.ServerCfg,
-		limiter:       limiter,
+		limiter:       options.Limiter,
 		xl:            xl,
 		ctx:           xlog.NewContext(ctx, xl),
 		userInfo:      options.UserInfo,

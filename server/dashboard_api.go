@@ -57,6 +57,8 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	subRouter.HandleFunc("/api/traffic/{name}", svr.apiProxyTraffic).Methods("GET")
 	subRouter.HandleFunc("/api/proxies", svr.deleteProxies).Methods("DELETE")
 
+	subRouter.HandleFunc("/api/bandwidth", svr.updateLimiters).Methods("POST")
+
 	// view
 	subRouter.Handle("/favicon.ico", http.FileServer(helper.AssetsFS)).Methods("GET")
 	subRouter.PathPrefix("/static/").Handler(
@@ -404,4 +406,33 @@ func (svr *Service) deleteProxies(w http.ResponseWriter, r *http.Request) {
 	}
 	cleared, total := mem.StatsCollector.ClearOfflineProxies()
 	log.Infof("cleared [%d] offline proxies, total [%d] proxies", cleared, total)
+}
+
+// POST /api/bandwidth
+func (svr *Service) updateLimiters(w http.ResponseWriter, r *http.Request) {
+	res := GeneralResponse{Code: 200}
+
+	log.Infof("Http request: [%s]", r.URL.Path)
+	defer func() {
+		log.Infof("Http response [%s]: code [%d]", r.URL.Path, res.Code)
+		w.WriteHeader(res.Code)
+		if len(res.Msg) > 0 {
+			_, _ = w.Write([]byte(res.Msg))
+		}
+	}()
+
+	var terminusNames []string
+	err := json.NewDecoder(r.Body).Decode(&terminusNames)
+	if err != nil {
+		res.Code = 400
+		res.Msg = "invalid request body"
+		return
+	}
+
+	log.Infof("bandwidth change: %v", terminusNames)
+	for _, v := range terminusNames {
+		log.Infof("%s", v)
+	}
+
+	go svr.limiterManager.UpdateLimiterByTerminusNames(terminusNames)
 }

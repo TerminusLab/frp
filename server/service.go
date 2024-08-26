@@ -32,6 +32,8 @@ import (
 	quic "github.com/quic-go/quic-go"
 	"github.com/samber/lo"
 
+	"github.com/fatedier/frp/pkg/config/types"
+
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	modelmetrics "github.com/fatedier/frp/pkg/metrics"
@@ -125,6 +127,8 @@ type Service struct {
 	ctx context.Context
 	// call cancel to stop service
 	cancel context.CancelFunc
+
+	limiterManager *LimiterManager
 }
 
 func NewService(cfg *v1.ServerConfig) (*Service, error) {
@@ -166,6 +170,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		tlsConfig:         tlsConfig,
 		cfg:               cfg,
 		ctx:               context.Background(),
+		limiterManager:    NewLimiterManager(),
 	}
 	if webServer != nil {
 		webServer.RouteRegister(svr.registerRouteHandlers)
@@ -584,8 +589,23 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		return err
 	}
 
+	var limitBytes int64 = 501 * types.KB
+	bandwidth, terminusNames, err := svr.limiterManager.GetBandwidthByTerminusName(loginMsg.User)
+	if err == nil {
+		limitBytes = bandwidth
+		svr.limiterManager.UpdateLimiterByGroup(terminusNames, limitBytes, int(1*limitBytes))
+	} else {
+		xl.Infof("USING DEFAULT BANDWIDTH: %v", limitBytes)
+		go func() {
+			svr.limiterManager.UpdateLimiterAfter(loginMsg.User)
+		}()
+	}
+
+	limiter := svr.limiterManager.GetRateLimiter(loginMsg.User, limitBytes, int(1*limitBytes))
+	xl.Infof("look %v %v %p", loginMsg.User, limitBytes, limiter)
+
 	// TODO(fatedier): use SessionContext
-	ctl, err := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, authVerifier, ctlConn, !internal, loginMsg, svr.cfg)
+	ctl, err := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, authVerifier, ctlConn, !internal, loginMsg, svr.cfg, limiter)
 	if err != nil {
 		xl.Warnf("create new controller error: %v", err)
 		// don't return detailed errors to client
