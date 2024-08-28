@@ -32,7 +32,7 @@ import (
 	quic "github.com/quic-go/quic-go"
 	"github.com/samber/lo"
 
-	"github.com/fatedier/frp/pkg/config/types"
+	"slices"
 
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
@@ -341,6 +341,31 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		return nil, fmt.Errorf("create nat hole controller error, %v", err)
 	}
 	svr.rc.NatHoleController = nc
+	go func() {
+		tick := time.NewTicker(30 * time.Minute)
+		defer tick.Stop()
+		for {
+			select {
+			case <-tick.C:
+				fmt.Println("tickerrrrrrrrrrrrrrrrrrrrrrrrrrrrr")
+				onlineUsers := svr.ctlManager.GetUsers()
+				defaultBandwidthUsers := svr.limiterManager.GetUserUsingDefaultBandwidth()
+
+				var needUpdateUsers []string
+				for _, user := range defaultBandwidthUsers {
+					fmt.Println(onlineUsers, user, needUpdateUsers)
+					if slices.Contains(onlineUsers, user) {
+						needUpdateUsers = append(needUpdateUsers, user)
+					}
+				}
+				//		svr.limiterManager.UpdateLoop()
+				log.Infof("need update users len: %v", len(needUpdateUsers))
+				for _, user := range needUpdateUsers {
+					svr.limiterManager.UpdateLimiterByTerminusName(user)
+				}
+			}
+		}
+	}()
 	return svr, nil
 }
 
@@ -589,20 +614,24 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		return err
 	}
 
-	var limitBytes int64 = 501 * types.KB
-	bandwidth, terminusNames, err := svr.limiterManager.GetBandwidthByTerminusName(loginMsg.User)
-	if err == nil {
-		limitBytes = bandwidth
-		svr.limiterManager.UpdateLimiterByGroup(terminusNames, limitBytes, int(1*limitBytes))
-	} else {
-		xl.Infof("USING DEFAULT BANDWIDTH: %v", limitBytes)
-		go func() {
-			svr.limiterManager.UpdateLimiterAfter(loginMsg.User)
-		}()
-	}
+	/*
+		var limitBytes int64 = 501 * types.KB
+		bandwidth, terminusNames, err := svr.limiterManager.GetBandwidthByTerminusName(loginMsg.User)
+		if err == nil {
+			limitBytes = bandwidth
+			svr.limiterManager.UpdateLimiterByGroup(terminusNames, limitBytes, int(1*limitBytes))
+		} else {
+			xl.Infof("USING DEFAULT BANDWIDTH: %v", limitBytes)
+			go func() {
+				svr.limiterManager.UpdateLimiterAfter(loginMsg.User)
+			}()
+		}
 
-	limiter := svr.limiterManager.GetRateLimiter(loginMsg.User, limitBytes, int(1*limitBytes))
-	xl.Infof("look %v %v %p", loginMsg.User, limitBytes, limiter)
+		limiter := svr.limiterManager.GetRateLimiter(loginMsg.User, limitBytes, int(1*limitBytes))
+		xl.Infof("look %v %v %p", loginMsg.User, limitBytes, limiter)
+	*/
+
+	limiter := svr.limiterManager.GetLimiterByTerminusName(loginMsg.User)
 
 	// TODO(fatedier): use SessionContext
 	ctl, err := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, authVerifier, ctlConn, !internal, loginMsg, svr.cfg, limiter)

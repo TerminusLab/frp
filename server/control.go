@@ -86,6 +86,17 @@ func (cm *ControlManager) GetByID(runID string) (ctl *Control, ok bool) {
 	return
 }
 
+func (cm *ControlManager) GetUsers() (users []string) {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	for _, value := range cm.ctlsByRunID {
+		users = append(users, value.loginMsg.User)
+	}
+
+	return
+}
+
 func (cm *ControlManager) Close() error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()

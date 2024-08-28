@@ -18,6 +18,10 @@ import (
 	"github.com/fatedier/frp/pkg/config/types"
 )
 
+const (
+	DefaultLimitBandwidth int64 = 1000 * 1000 * 4
+)
+
 type LimiterManager struct {
 	rateLimiter map[string]*rate.Limiter
 
@@ -40,6 +44,19 @@ func (lm *LimiterManager) GetBandwidth() map[string]int64 {
 	}
 
 	return bandwidth
+}
+
+func (lm *LimiterManager) GetUserUsingDefaultBandwidth() (terminusNames []string) {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+
+	for key, value := range lm.rateLimiter {
+		if int64(value.Limit()) == DefaultLimitBandwidth {
+			terminusNames = append(terminusNames, key)
+		}
+	}
+
+	return
 }
 
 func (lm *LimiterManager) GetRateLimiter(terminusName string, limitBytes int64, burstBytes int) *rate.Limiter {
@@ -219,6 +236,35 @@ func (lm *LimiterManager) UpdateLimiterByTerminusNames(terminusNames []string) {
                 }
         }
         time.Sleep(1 * time.Second)
+}
+
+func (lm *LimiterManager) UpdateLimiterByTerminusName(terminusName string) {
+        xl := xlog.New()
+	bandwidth, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
+	if err == nil {
+		lm.UpdateLimiterByGroup(terminusNames, bandwidth, int(1*bandwidth))
+		xl.Infof("--------------> %v %v", terminusNames, bandwidth)
+	}
+}
+
+func (lm *LimiterManager) GetLimiterByTerminusName(terminusName string) *rate.Limiter {
+        xl := xlog.New()
+	var limitBytes = DefaultLimitBandwidth
+	bandwidth, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
+	if err == nil {
+		limitBytes = bandwidth
+		lm.UpdateLimiterByGroup(terminusNames, limitBytes, int(1*limitBytes))
+	} else {
+		xl.Infof("USING DEFAULT BANDWIDTH: %v", limitBytes)
+		go func() {
+			lm.UpdateLimiterAfter(terminusName)
+		}()
+	}
+
+	limiter := lm.GetRateLimiter(terminusName, limitBytes, int(1*limitBytes))
+	xl.Infof("look %v %v %p", terminusName, limitBytes, limiter)
+
+	return limiter
 }
 
 type Users struct {
