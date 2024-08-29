@@ -461,7 +461,9 @@ func (svr *Service) bandwidth(w http.ResponseWriter, r *http.Request) {
 	log.Infof("Http request: [%s]", r.URL.Path)
 	w.Header().Set("Content-Type", "application/json")
 
-	bandwidth := svr.limiterManager.GetBandwidth()
+	terminusName := r.URL.Query().Get("name")
+
+	bandwidth := svr.limiterManager.GetBandwidth(terminusName)
 	bandwidthResp := GetBandwidthResp{
 		BandwidthLimit: bandwidth,
 	}
