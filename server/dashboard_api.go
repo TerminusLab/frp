@@ -15,6 +15,7 @@
 package server
 
 import (
+	"time"
 	"cmp"
 	"encoding/json"
 	"net/http"
@@ -57,8 +58,10 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	subRouter.HandleFunc("/api/traffic/{name}", svr.apiProxyTraffic).Methods("GET")
 	subRouter.HandleFunc("/api/proxies", svr.deleteProxies).Methods("DELETE")
 
-	subRouter.HandleFunc("/api/bandwidth", svr.updateLimiters).Methods("POST")
-	subRouter.HandleFunc("/api/bandwidth", svr.bandwidth).Methods("GET")
+	limiterRouter := helper.Router.NewRoute().Subrouter()
+	limiterRouter.Use(netpkg.NewHTTPAuthMiddleware(svr.cfg.WebServer.UserForLimiter, svr.cfg.WebServer.PasswordForLimiter).SetAuthFailDelay(200 * time.Millisecond).Middleware)
+	limiterRouter.HandleFunc("/api/bandwidth", svr.updateLimiters).Methods("POST")
+	limiterRouter.HandleFunc("/api/bandwidth", svr.bandwidth).Methods("GET")
 
 	// view
 	subRouter.Handle("/favicon.ico", http.FileServer(helper.AssetsFS)).Methods("GET")

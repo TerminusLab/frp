@@ -349,7 +349,9 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 			case <-tick.C:
 				fmt.Println("tickerrrrrrrrrrrrrrrrrrrrrrrrrrrrr")
 				onlineUsers := svr.ctlManager.GetUsers()
+				log.Infof("online users:%v", onlineUsers)
 				defaultBandwidthUsers := svr.limiterManager.GetUserUsingDefaultBandwidth()
+				log.Infof("default bandwidth users:%v", defaultBandwidthUsers)
 
 				var needUpdateUsers []string
 				for _, user := range defaultBandwidthUsers {
@@ -358,8 +360,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 						needUpdateUsers = append(needUpdateUsers, user)
 					}
 				}
-				//		svr.limiterManager.UpdateLoop()
-				log.Infof("need update users len: %v", len(needUpdateUsers))
+				log.Infof("need update users : %v", needUpdateUsers)
 				for _, user := range needUpdateUsers {
 					svr.limiterManager.UpdateLimiterByTerminusName(user)
 				}

@@ -137,13 +137,12 @@ func (lm *LimiterManager) GetBandwidthByTerminusName(terminusName string) (int64
 			xl.Warnf("VVVVVVVVVVVVVVVVVVVVVVV %v %v", err, response.Data.DownBandwidth)
 			return limitBytes, terminusNames, err
 		} else {
-			xl.Infof(">>>><<<<<<<<<<<<<<<<: %v", bd.Bytes())
 			limitBytes := bd.Bytes()
 			count := len(terminusNames)
 			if count > 0 {
 				limitBytes /= int64(count)
 			}
-			xl.Infof(">>>><<<<<<<<<<<<<<<<: %v %v", bd.Bytes(), limitBytes)
+			xl.Infof("all: %v, div: %v", bd.Bytes(), limitBytes)
 			return  limitBytes, terminusNames, nil
 		}
 	} else {
