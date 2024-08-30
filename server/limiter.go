@@ -229,12 +229,20 @@ func (lm *LimiterManager) UpdateLimiterAfter(terminusName string) {
         }()
 }
 
+func (lm *LimiterManager) Exist(terminusName string) bool {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+
+        _, ok := lm.rateLimiter[terminusName]
+        return ok
+}
+
 func (lm *LimiterManager) UpdateLimiterByTerminusNames(terminusNames []string) {
         xl := xlog.New()
 
         for i := range terminusNames {
-		if _, ok := lm.rateLimiter[terminusNames[i]]; !ok {
-			xl.Infof("not found %v", terminusNames[i])
+		if !lm.Exist(terminusNames[i]) {
+			xl.Infof("not found terminus name (%v) in local", terminusNames[i])
 			continue
 		}
 
