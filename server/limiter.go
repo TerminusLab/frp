@@ -233,6 +233,11 @@ func (lm *LimiterManager) UpdateLimiterByTerminusNames(terminusNames []string) {
         xl := xlog.New()
 
         for i := range terminusNames {
+		if _, ok := lm.rateLimiter[terminusNames[i]]; !ok {
+			xl.Infof("not found %v", terminusNames[i])
+			continue
+		}
+
                 terminusName := terminusNames[i]
                 limitBytes, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
                 if err == nil {
