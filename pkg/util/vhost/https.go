@@ -16,9 +16,12 @@ package vhost
 
 import (
 	"crypto/tls"
+	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"time"
+	//	"io/ioutil"
 
 	libnet "github.com/fatedier/golib/net"
 )
@@ -30,6 +33,7 @@ type HTTPSMuxer struct {
 func NewHTTPSMuxer(listener net.Listener, timeout time.Duration) (*HTTPSMuxer, error) {
 	mux, err := NewMuxer(listener, GetHTTPSHostname, timeout)
 	mux.SetFailHookFunc(vhostFailed)
+	mux.SetFailHookSNIFunc(vhostSNIFailed)
 	if err != nil {
 		return nil, err
 	}
@@ -74,6 +78,66 @@ func vhostFailed(c net.Conn) {
 	// Alert with alertUnrecognizedName
 	_ = tls.Server(c, &tls.Config{}).Handshake()
 	c.Close()
+}
+
+func vhostSNIFailed(c net.Conn, sni string) {
+	defer c.Close()
+	fmt.Println("----------------------------> ", sni)
+	data, err := GetCert(sni)
+	if err != nil {
+		fmt.Println("Error Get certificates:", err)
+		return
+	}
+	var certPEM = data.Cert
+	var keyPEM = data.Key
+	fmt.Println(certPEM, keyPEM)
+	cert, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
+	if err != nil {
+		fmt.Println("Error loading certificates:", err)
+		//		_ = tls.Server(c, &tls.Config{}).Handshake()
+		return
+	}
+	tlsConn := tls.Server(c, &tls.Config{
+		Certificates: []tls.Certificate{cert},
+	})
+	defer tlsConn.Close()
+
+	if err := tlsConn.Handshake(); err != nil {
+		fmt.Println("Handshake failed:", err)
+		return
+	}
+	/*
+		buf, err := ioutil.ReadAll(tlsConn)
+		if err != nil {
+			fmt.Println("Error reading from connection:", err)
+			return
+		}
+
+		fmt.Printf("Received data: %s\n", buf)
+	*/
+	loc, _ := time.LoadLocation("GMT")
+	body := "error code: 522"
+	response := "HTTP/1.1 522\r\n" +
+		"Date: " + time.Now().In(loc).Format(time.RFC1123) + "\r\n" +
+		"Content-Type: text/plain; charset=UTF-8\r\n" +
+		"Content-Length: " + strconv.Itoa(len(body)) + "\r\n" +
+		"X-Frame-Options: SAMEORIGIN\r\n" +
+		"Referrer-Policy: same-origin\r\n" +
+		"Cache-Control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0\r\n" +
+		"Expires: " + time.Unix(1, 0).In(loc).Format(time.RFC1123) + "\r\n" +
+		"Server: frp\r\n" +
+		"Connection: close\r\n" +
+		"\r\n" + body
+
+	fmt.Println(response)
+
+	_, err = tlsConn.Write([]byte(response))
+	if err != nil {
+		fmt.Println("Error writing response:", err)
+		return
+	}
+
+	fmt.Println(sni, "Sent 522 response")
 }
 
 type readOnlyConn struct {

@@ -24,6 +24,8 @@ import (
 type ServerConfig struct {
 	APIMetadata
 
+	Cloud CloudConfig `json:"cloud,omitempty"`
+	CertDownload CertDownloadConfig `json:"certDownload,omitempty"`
 	Auth AuthServerConfig `json:"auth,omitempty"`
 	// BindAddr specifies the address that the server binds to. By default,
 	// this value is "0.0.0.0".
@@ -120,6 +122,17 @@ func (c *ServerConfig) Complete() {
 	c.UserConnTimeout = util.EmptyOr(c.UserConnTimeout, 10)
 	c.UDPPacketSize = util.EmptyOr(c.UDPPacketSize, 1500)
 	c.NatHoleAnalysisDataReserveHours = util.EmptyOr(c.NatHoleAnalysisDataReserveHours, 7*24)
+}
+
+type CloudConfig struct {
+	Url   string `json:url,omitempty"`
+	Token string `json:token,omitempty"`
+}
+
+type CertDownloadConfig struct {
+	Url      string `json:url,omitempty"`
+	User     string `json:"user,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
 type AuthServerConfig struct {

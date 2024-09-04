@@ -1,21 +1,21 @@
 package server
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"io/ioutil"
+	"net/http"
+	"slices"
 	"sync"
 	"time"
-	"bytes"
-	"slices"
-	"errors"
-	"net/http"
-	"io/ioutil"
-	"encoding/json"
 
-
-	"github.com/google/uuid"
-	"golang.org/x/time/rate"
-	"github.com/hashicorp/go-retryablehttp"
-	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/pkg/config/types"
+	"github.com/fatedier/frp/pkg/util/xlog"
+	"github.com/fatedier/frp/server/helper"
+	"github.com/google/uuid"
+	"github.com/hashicorp/go-retryablehttp"
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -84,7 +84,7 @@ func (lm *LimiterManager) GetRateLimiter(terminusName string, limitBytes int64, 
 	}
 }
 
-func (lm *LimiterManager) UpdateLimiterByGroup(terminusNames [] string, limitBytes int64, burstBytes int) {
+func (lm *LimiterManager) UpdateLimiterByGroup(terminusNames []string, limitBytes int64, burstBytes int) {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 
@@ -112,7 +112,7 @@ func (lm *LimiterManager) GetBandwidthByTerminusName(terminusName string) (int64
 	var limitBytes int64
 	var terminusNames []string
 	xl := xlog.New()
-	respBody, err := lm.GetCommon("https://cloud-dev-api.bttcdn.com/v1/resource/clusterUsers", []byte("terminusName="+terminusName))
+	respBody, err := lm.GetCommon(helper.Cfg.Cloud.Url+"/v1/resource/clusterUsers", []byte("terminusName="+terminusName))
 	if err != nil {
 		xl.Warnf("Get clsuter users: %v", err)
 		return limitBytes, terminusNames, err
@@ -132,7 +132,7 @@ func (lm *LimiterManager) GetBandwidthByTerminusName(terminusName string) (int64
 			return limitBytes, terminusNames, err
 		}
 		xl.Warnf("%v %v", response.Data.TerminusId, parsedUUID)
-//		terminusId := parsedUUID.String()
+		//		terminusId := parsedUUID.String()
 		for _, v := range response.Data.Users {
 			terminusNames = append(terminusNames, v.TerminusName)
 		}
@@ -151,11 +151,12 @@ func (lm *LimiterManager) GetBandwidthByTerminusName(terminusName string) (int64
 				limitBytes /= int64(count)
 			}
 			xl.Infof("all: %v, div: %v", bd.Bytes(), limitBytes)
-			return  limitBytes, terminusNames, nil
+			return limitBytes, terminusNames, nil
 		}
 	} else {
-		xl.Warnf("using default valueeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee %v", terminusName)
-		return limitBytes, terminusNames, errors.New("invalid reponse")
+		xl.Warnf("invalid  response for %v", terminusName)
+		//		SendFeishu
+		return limitBytes, terminusNames, errors.New("invalid response")
 	}
 }
 
@@ -168,7 +169,7 @@ func (lm *LimiterManager) GetCommon(requestUrl string, requestData []byte) (stri
 		xl.Warnf("client: could not create request: %s\n", err)
 		return "", err
 	}
-	req.Header.Set("Authorization", "b9ec4f2904f891405df84be3a0dcc31a")
+	req.Header.Set("Authorization", helper.Cfg.Cloud.Token)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	client := retryablehttp.NewClient()
@@ -212,54 +213,54 @@ func (lm *LimiterManager) GetCommon(requestUrl string, requestData []byte) (stri
 }
 
 func (lm *LimiterManager) UpdateLimiterAfter(terminusName string) {
-        xl := xlog.New()
-        xl.AppendPrefix(terminusName)
-        timer := time.After(10 * time.Minute)
+	xl := xlog.New()
+	xl.AppendPrefix(terminusName)
+	timer := time.After(10 * time.Minute)
 
-        go func() {
-                select {
-                case <-timer:
-                        xl.Infof("update limiteer for %v", terminusName)
-                        limitBytes, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
-                        if err == nil {
+	go func() {
+		select {
+		case <-timer:
+			xl.Infof("update limiteer for %v", terminusName)
+			limitBytes, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
+			if err == nil {
 				lm.UpdateLimiterByGroup(terminusNames, limitBytes, int(1*limitBytes))
-                        }
+			}
 
-                }
-        }()
+		}
+	}()
 }
 
 func (lm *LimiterManager) Exist(terminusName string) bool {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 
-        _, ok := lm.rateLimiter[terminusName]
-        return ok
+	_, ok := lm.rateLimiter[terminusName]
+	return ok
 }
 
 func (lm *LimiterManager) UpdateLimiterByTerminusNames(terminusNames []string) {
-        xl := xlog.New()
+	xl := xlog.New()
 
-        for i := range terminusNames {
+	for i := range terminusNames {
 		if !lm.Exist(terminusNames[i]) {
 			xl.Infof("not found terminus name (%v) in local", terminusNames[i])
 			continue
 		}
 
-                terminusName := terminusNames[i]
-                limitBytes, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
-                if err == nil {
+		terminusName := terminusNames[i]
+		limitBytes, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
+		if err == nil {
 			lm.UpdateLimiterByGroup(terminusNames, limitBytes, int(1*limitBytes))
-                        xl.Infof("update %vs bandwidth limit to %v", terminusName, limitBytes)
-                } else {
-                        xl.Warnf("update bandwidth for %v(%v)", err)
-                }
-        }
-        time.Sleep(1 * time.Second)
+			xl.Infof("update %vs bandwidth limit to %v", terminusName, limitBytes)
+		} else {
+			xl.Warnf("update bandwidth for %v(err: %v)", terminusName, err)
+		}
+	}
+	time.Sleep(1 * time.Second)
 }
 
 func (lm *LimiterManager) UpdateLimiterByTerminusName(terminusName string) {
-        xl := xlog.New()
+	xl := xlog.New()
 	bandwidth, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
 	if err == nil {
 		lm.UpdateLimiterByGroup(terminusNames, bandwidth, int(1*bandwidth))
@@ -268,7 +269,7 @@ func (lm *LimiterManager) UpdateLimiterByTerminusName(terminusName string) {
 }
 
 func (lm *LimiterManager) GetLimiterByTerminusName(terminusName string) *rate.Limiter {
-        xl := xlog.New()
+	xl := xlog.New()
 	var limitBytes = DefaultLimitBandwidth
 	bandwidth, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
 	if err == nil {
@@ -304,4 +305,3 @@ type Reponse struct {
 	Message string       `json:"message"`
 	Data    ClusterUsers `json:"data"`
 }
-

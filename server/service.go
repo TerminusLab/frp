@@ -52,6 +52,7 @@ import (
 	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/group"
+	"github.com/fatedier/frp/server/helper"
 	"github.com/fatedier/frp/server/metrics"
 	"github.com/fatedier/frp/server/ports"
 	"github.com/fatedier/frp/server/proxy"
@@ -132,6 +133,8 @@ type Service struct {
 }
 
 func NewService(cfg *v1.ServerConfig) (*Service, error) {
+	helper.Cfg = cfg
+
 	tlsConfig, err := transport.NewServerTLSConfig(
 		cfg.Transport.TLS.CertFile,
 		cfg.Transport.TLS.KeyFile,
