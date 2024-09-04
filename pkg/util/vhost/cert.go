@@ -95,27 +95,14 @@ func GetCertRequest(name, user, password, theurl string) (string, error) {
 	return string(bds), nil
 }
 
-func GetTerminusNameFromSNI(input string) string {
+func GetTerminusNameFromSNI(input string) (string, error) {
 	parts := strings.Split(input, ".")
-
-	if len(parts) < 3 {
-		return input
+	sniSplitLen := len(parts)
+	if sniSplitLen < 3 {
+		return "", errors.New("too short!")
 	}
 
-	middle := strings.Join(parts[len(parts)-3:], ".")
-
-	lastDot := strings.LastIndex(middle, ".")
-	if lastDot == -1 {
-		return input
-	}
-
-	secondLastDot := strings.LastIndex(middle[:lastDot], ".")
-	if secondLastDot == -1 {
-		return input
-	}
-
-	result := middle[:secondLastDot] + "@" + middle[secondLastDot+1:]
-	return result
+	return parts[sniSplitLen-3] + "@" + parts[sniSplitLen-2] + "." + parts[sniSplitLen-1], nil
 }
 
 func IsExpired(endDate string) (bool, error) {
@@ -137,11 +124,50 @@ func IsExpired(endDate string) (bool, error) {
 	}
 }
 
+func checkDid(did string) bool {
+        didLen := len(did)
+        if didLen < 1 || didLen > 63 {
+                return false
+        }
+        for i, c := range did {
+                if (i == 0 || (i == len(did)-1)) && c == '-' {
+                        return false
+                }
+                if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '-' {
+                        return false
+                }
+        }
+
+        if strings.Contains(did, "--") {
+                return false
+        }
+
+        return true
+}
+
+
+func checkDomain(domain string) bool {
+        string_slice := strings.Split(domain, ".")
+        if len(string_slice) < 2 {
+                return false
+        }
+        for _, label := range string_slice {
+                if !checkDid(label) {
+                        return false
+                }
+        }
+
+        return true
+}
+
 func GetCert(name string) (Cert, error) {
-	name = GetTerminusNameFromSNI(name)
+	var cert Cert
+	name, err := GetTerminusNameFromSNI(name)
+	if err != nil {
+		return cert, err
+	}
 	xl := xlog.New()
 
-	var cert Cert
 	if c, ok := certs[name]; ok {
 		isExpired, err := IsExpired(c.EndDate)
 		if err == nil && !isExpired {

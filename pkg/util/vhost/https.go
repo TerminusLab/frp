@@ -82,7 +82,7 @@ func vhostFailed(c net.Conn) {
 
 func vhostSNIFailed(c net.Conn, sni string) {
 	defer c.Close()
-	fmt.Println("----------------------------> ", sni)
+	fmt.Println("sni ---------------------------->[", sni, "]")
 	data, err := GetCert(sni)
 	if err != nil {
 		fmt.Println("Error Get certificates:", err)
@@ -115,7 +115,11 @@ func vhostSNIFailed(c net.Conn, sni string) {
 
 		fmt.Printf("Received data: %s\n", buf)
 	*/
-	loc, _ := time.LoadLocation("GMT")
+	loc, err := time.LoadLocation("GMT")
+	if err != nil {
+		fmt.Println("$$$$$$$$$$$$$", err)
+		return
+	}
 	body := "error code: 522"
 	response := "HTTP/1.1 522\r\n" +
 		"Date: " + time.Now().In(loc).Format(time.RFC1123) + "\r\n" +
