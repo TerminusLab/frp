@@ -1,35 +1,35 @@
 package vhost
 
 import (
-	"fmt"
-	"time"
 	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io/ioutil"
 	"log"
-	"strings"
 	"net/http"
 	"net/url"
-	"io/ioutil"
-	"errors"
-	"encoding/json"
-//	"encoding/base64"
+	"strings"
+	"time"
+	//	"encoding/base64"
 
+	httppkg "github.com/fatedier/frp/pkg/util/http"
+	"github.com/fatedier/frp/pkg/util/xlog"
+	"github.com/fatedier/frp/server/helper"
 	"github.com/hashicorp/go-retryablehttp"
-        "github.com/fatedier/frp/pkg/util/xlog"
-        "github.com/fatedier/frp/server/helper"
-	 httppkg "github.com/fatedier/frp/pkg/util/http"
 )
 
 type Response struct {
-        Success bool   `json:"success"`
-        Message string `json:"message"`
-        Data    Cert   `json:"data"`
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Data    Cert   `json:"data"`
 }
 
 type Cert struct {
 	Zone    string `json:"zone"`
-        Cert    string `json:"cert"`
-        Key     string `json:"key"`
-        EndDate string `json:"enddate"`
+	Cert    string `json:"cert"`
+	Key     string `json:"key"`
+	EndDate string `json:"enddate"`
 }
 
 var certs map[string]Cert = make(map[string]Cert)
@@ -48,9 +48,9 @@ func GetCertRequest(name, user, password, theurl string) (string, error) {
 		return ret, err
 	}
 	/*
-	auth := fmt.Sprintf("%s:%s", user, password)
-	encodedAuth := base64.StdEncoding.EncodeToString([]byte(auth))
-	req.Header.Set("Authorization", "Basic " + encodedAuth)
+		auth := fmt.Sprintf("%s:%s", user, password)
+		encodedAuth := base64.StdEncoding.EncodeToString([]byte(auth))
+		req.Header.Set("Authorization", "Basic " + encodedAuth)
 	*/
 	req.Header.Set("Authorization", httppkg.BasicAuth(user, password))
 
@@ -63,7 +63,7 @@ func GetCertRequest(name, user, password, theurl string) (string, error) {
 		if attemptNum != 0 {
 			// l.Printf("Request: %s %s (attempt %d)", r.Method, r.URL, attemptNum)
 			log.Printf("RequestLogHook: %s %s (attempt %d)", r.Method, r.URL, attemptNum)
-//			SendFeishu(fmt.Sprintf("retry -> %s", r.URL))
+			//			SendFeishu(fmt.Sprintf("retry -> %s", r.URL))
 		}
 	}
 
@@ -71,7 +71,7 @@ func GetCertRequest(name, user, password, theurl string) (string, error) {
 		if resp.StatusCode != http.StatusOK {
 			// l.Printf("Response: %d", resp.StatusCode)
 			log.Printf("ResponseLogHook: %+v", resp)
-//			SendFeishu(fmt.Sprintf("status: %s -> %s", resp.Status, resp.Request.URL))
+			//			SendFeishu(fmt.Sprintf("status: %s -> %s", resp.Status, resp.Request.URL))
 		}
 	}
 	resp, err := client.Do(req)
@@ -81,7 +81,7 @@ func GetCertRequest(name, user, password, theurl string) (string, error) {
 	}
 	log.Printf("%+v", resp)
 	if resp.StatusCode != http.StatusOK {
-//		SendFeishu(resp.Status + " -> " + requestUrl)
+		//		SendFeishu(resp.Status + " -> " + requestUrl)
 		return ret, errors.New(resp.Status)
 	}
 	defer resp.Body.Close()
@@ -95,19 +95,27 @@ func GetCertRequest(name, user, password, theurl string) (string, error) {
 	return string(bds), nil
 }
 
-func replaceSecondLastDot(input string) string {
-    lastDot := strings.LastIndex(input, ".")
-    if lastDot == -1 {
-        return input
-    }
+func GetTerminusNameFromSNI(input string) string {
+	parts := strings.Split(input, ".")
 
-    secondLastDot := strings.LastIndex(input[:lastDot], ".")
-    if secondLastDot == -1 {
-        return input
-    }
+	if len(parts) < 3 {
+		return input
+	}
 
-    result := input[:secondLastDot] + "@" + input[secondLastDot+1:]
-    return result
+	middle := strings.Join(parts[len(parts)-3:], ".")
+
+	lastDot := strings.LastIndex(middle, ".")
+	if lastDot == -1 {
+		return input
+	}
+
+	secondLastDot := strings.LastIndex(middle[:lastDot], ".")
+	if secondLastDot == -1 {
+		return input
+	}
+
+	result := middle[:secondLastDot] + "@" + middle[secondLastDot+1:]
+	return result
 }
 
 func IsExpired(endDate string) (bool, error) {
@@ -130,7 +138,7 @@ func IsExpired(endDate string) (bool, error) {
 }
 
 func GetCert(name string) (Cert, error) {
-	name = replaceSecondLastDot(name)
+	name = GetTerminusNameFromSNI(name)
 	xl := xlog.New()
 
 	var cert Cert
@@ -147,14 +155,14 @@ func GetCert(name string) (Cert, error) {
 		return cert, err
 	}
 
-        xl.Infof(respBody)
+	xl.Infof(respBody)
 
-        var response Response
+	var response Response
 	err = json.Unmarshal([]byte(respBody), &response)
-        if err != nil {
-                xl.Warnf("Error: %v", err)
-                return cert,  err
-        }
+	if err != nil {
+		xl.Warnf("Error: %v", err)
+		return cert, err
+	}
 
 	if response.Success {
 		certs[name] = response.Data
