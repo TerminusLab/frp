@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -106,9 +105,10 @@ func GetTerminusNameFromSNI(input string) (string, error) {
 }
 
 func IsExpired(endDate string) (bool, error) {
+	xl := xlog.New()
 	parsedTime, err := time.Parse(time.RFC3339, endDate)
 	if err != nil {
-		fmt.Println("Error parsing date:", err)
+		xl.Errorf("Error parsing date:", err)
 		return false, err
 	}
 
@@ -116,10 +116,10 @@ func IsExpired(endDate string) (bool, error) {
 	advanced := currentTime.AddDate(0, 0, 7)
 
 	if parsedTime.Before(advanced) {
-		fmt.Println("The end date is before the current time + 7.")
+		xl.Infof("The end date is before the current time + 7.")
 		return true, nil
 	} else {
-		fmt.Println("The end date is not before the current time + 7.")
+		xl.Infof("The end date is not before the current time + 7.")
 		return false, nil
 	}
 }
@@ -161,19 +161,19 @@ func checkDomain(domain string) bool {
 }
 
 func GetCert(name string) (Cert, error) {
+	xl := xlog.New()
 	var cert Cert
 	name, err := GetTerminusNameFromSNI(name)
 	if err != nil {
 		return cert, err
 	}
-	xl := xlog.New()
 
 	if c, ok := certs[name]; ok {
 		isExpired, err := IsExpired(c.EndDate)
 		if err == nil && !isExpired {
 			return c, nil
 		}
-		fmt.Printf("is expired: %v err: %v", isExpired, err)
+		xl.Warnf("is expired: %v err: %v", isExpired, err)
 	}
 
 	respBody, err := GetCertRequest(name, helper.Cfg.CertDownload.User, helper.Cfg.CertDownload.Password, helper.Cfg.CertDownload.Url)

@@ -21,7 +21,7 @@ import (
 	"net"
 	"strconv"
 	"time"
-	//	"io/ioutil"
+//	"io/ioutil"
 
 	libnet "github.com/fatedier/golib/net"
 )
@@ -82,7 +82,7 @@ func vhostFailed(c net.Conn) {
 
 func vhostSNIFailed(c net.Conn, sni string) {
 	defer c.Close()
-	fmt.Println("sni ---------------------------->[", sni, "]")
+	fmt.Printf("sni ----------------------------> [%v]\n", sni)
 	data, err := GetCert(sni)
 	if err != nil {
 		fmt.Println("Error Get certificates:", err)
