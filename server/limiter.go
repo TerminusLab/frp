@@ -107,14 +107,28 @@ func (lm *LimiterManager) UpdateLimiterByGroup(terminusNames []string, limitByte
 	}
 }
 
+func (lm *LimiterManager) GetAllTerminusNames() (terminusNames []string) {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+
+	for key, _ := range lm.rateLimiter {
+		terminusNames = append(terminusNames, key)
+	}
+
+	return
+}
+
 func (lm *LimiterManager) UpdateLoop() {
 	xl := xlog.New()
-	tick := time.NewTicker(5 * time.Minute)
+	tick := time.NewTicker(1 * time.Hour)
 	defer tick.Stop()
 	for {
 		select {
 		case <-tick.C:
-			xl.Infof("ssssssssssssssssssssssssssssssssssssssss 555555555555555555555")
+			xl.Infof("Update All terminus name in local frp")
+			terminusNames := lm.GetAllTerminusNames()
+			xl.Infof("local terminus name list %v", terminusNames)
+			lm.UpdateLimiterByTerminusNames(terminusNames)
 		}
 	}
 }
@@ -266,8 +280,8 @@ func (lm *LimiterManager) UpdateLimiterByTerminusNames(terminusNames []string) {
 		} else {
 			xl.Warnf("update bandwidth for %v(err: %v)", terminusName, err)
 		}
+		time.Sleep(1 * time.Second)
 	}
-	time.Sleep(1 * time.Second)
 }
 
 func (lm *LimiterManager) UpdateLimiterByTerminusName(terminusName string) {

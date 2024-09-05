@@ -425,6 +425,7 @@ func (svr *Service) updateLimiters(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	log.Infof("%v", r.Body)
 	var terminusNames []string
 	err := json.NewDecoder(r.Body).Decode(&terminusNames)
 	if err != nil {

@@ -344,6 +344,8 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		return nil, fmt.Errorf("create nat hole controller error, %v", err)
 	}
 	svr.rc.NatHoleController = nc
+
+	go svr.limiterManager.UpdateLoop()
 	go func() {
 		tick := time.NewTicker(30 * time.Minute)
 		defer tick.Stop()
