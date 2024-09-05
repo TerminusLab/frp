@@ -20,6 +20,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"errors"
 	"time"
 //	"io/ioutil"
 
@@ -80,6 +81,38 @@ func vhostFailed(c net.Conn) {
 	c.Close()
 }
 
+func GetErrorResponse(code int) (string, error) {
+	var response, body string
+	if code == 522 {
+		response = "HTTP/1.1 522\r\n"
+		body = "error code: 522"
+	} else if code == 530 {
+		response = "HTTP/2 530 No Reason Phrase\r\n"
+		body = "Error 1033"
+	} else {
+		return "", errors.New(fmt.Sprintf("not support code %v", code))
+	}
+
+	loc, err := time.LoadLocation("GMT")
+	if err != nil {
+		return "", err
+	}
+
+	response +=
+		"Date: " + time.Now().In(loc).Format(time.RFC1123) + "\r\n" +
+		"Content-Type: text/plain; charset=UTF-8\r\n" +
+		"Content-Length: " + strconv.Itoa(len(body)) + "\r\n" +
+		"X-Frame-Options: SAMEORIGIN\r\n" +
+		"Referrer-Policy: same-origin\r\n" +
+		"Cache-Control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0\r\n" +
+		"Expires: " + time.Unix(1, 0).In(loc).Format(time.RFC1123) + "\r\n" +
+		"Server: frp\r\n" +
+		"Connection: close\r\n" +
+		"\r\n" + body
+
+	return response, nil
+}
+
 func vhostSNIFailed(c net.Conn, sni string) {
 	defer c.Close()
 	fmt.Printf("sni ----------------------------> [%v]\n", sni)
@@ -115,23 +148,10 @@ func vhostSNIFailed(c net.Conn, sni string) {
 
 		fmt.Printf("Received data: %s\n", buf)
 	*/
-	loc, err := time.LoadLocation("GMT")
+	response, err := GetErrorResponse(530)
 	if err != nil {
-		fmt.Println("$$$$$$$$$$$$$", err)
-		return
+		fmt.Println("GetErrorResponse", err)
 	}
-	body := "error code: 522"
-	response := "HTTP/1.1 522\r\n" +
-		"Date: " + time.Now().In(loc).Format(time.RFC1123) + "\r\n" +
-		"Content-Type: text/plain; charset=UTF-8\r\n" +
-		"Content-Length: " + strconv.Itoa(len(body)) + "\r\n" +
-		"X-Frame-Options: SAMEORIGIN\r\n" +
-		"Referrer-Policy: same-origin\r\n" +
-		"Cache-Control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0\r\n" +
-		"Expires: " + time.Unix(1, 0).In(loc).Format(time.RFC1123) + "\r\n" +
-		"Server: frp\r\n" +
-		"Connection: close\r\n" +
-		"\r\n" + body
 
 	fmt.Println(response)
 

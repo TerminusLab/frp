@@ -19,8 +19,19 @@ import (
 )
 
 const (
-	DefaultLimitBandwidth int64 = 1000 * 1000 * 4
+	DefaultLimitBandwidth int64 = 1000 * 1000 * 1
 )
+
+func GetDefaultBandwidth() int64 {
+	xl := xlog.New()
+	configBandwidth := helper.Cfg.BandwidthLimiter.DefaultBandwidth
+	xl.Infof("config default bandwidth: [%v]", configBandwidth.String())
+	if configBandwidth.Bytes() < DefaultLimitBandwidth {
+		return DefaultLimitBandwidth
+	} else {
+		return configBandwidth.Bytes()
+	}
+}
 
 type LimiterManager struct {
 	rateLimiter map[string]*rate.Limiter
@@ -59,7 +70,7 @@ func (lm *LimiterManager) GetUserUsingDefaultBandwidth() (terminusNames []string
 	defer lm.mu.Unlock()
 
 	for key, value := range lm.rateLimiter {
-		if int64(value.Limit()) == DefaultLimitBandwidth {
+		if int64(value.Limit()) == GetDefaultBandwidth() {
 			terminusNames = append(terminusNames, key)
 		}
 	}
@@ -270,7 +281,7 @@ func (lm *LimiterManager) UpdateLimiterByTerminusName(terminusName string) {
 
 func (lm *LimiterManager) GetLimiterByTerminusName(terminusName string) *rate.Limiter {
 	xl := xlog.New()
-	var limitBytes = DefaultLimitBandwidth
+	var limitBytes = GetDefaultBandwidth()
 	bandwidth, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
 	if err == nil {
 		limitBytes = bandwidth

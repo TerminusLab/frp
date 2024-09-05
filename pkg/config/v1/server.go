@@ -24,6 +24,7 @@ import (
 type ServerConfig struct {
 	APIMetadata
 
+	BandwidthLimiter BandwidthLimiterConfig `json:"bandwidthLimiter,omitempty"`
 	Cloud CloudConfig `json:"cloud,omitempty"`
 	CertDownload CertDownloadConfig `json:"certDownload,omitempty"`
 	Auth AuthServerConfig `json:"auth,omitempty"`
@@ -101,6 +102,7 @@ type ServerConfig struct {
 }
 
 func (c *ServerConfig) Complete() {
+	c.BandwidthLimiter.Complete()
 	c.Auth.Complete()
 	c.Log.Complete()
 	c.Transport.Complete()
@@ -122,6 +124,13 @@ func (c *ServerConfig) Complete() {
 	c.UserConnTimeout = util.EmptyOr(c.UserConnTimeout, 10)
 	c.UDPPacketSize = util.EmptyOr(c.UDPPacketSize, 1500)
 	c.NatHoleAnalysisDataReserveHours = util.EmptyOr(c.NatHoleAnalysisDataReserveHours, 7*24)
+}
+
+type BandwidthLimiterConfig struct {
+	DefaultBandwidth types.BandwidthQuantity `json:defaultBandwidth,omitempty"`
+}
+
+func (c *BandwidthLimiterConfig) Complete() {
 }
 
 type CloudConfig struct {
