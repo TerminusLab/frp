@@ -87,7 +87,7 @@ func GetErrorResponse(code int) (string, error) {
 		response = "HTTP/1.1 522\r\n"
 		body = "error code: 522"
 	} else if code == 530 {
-		response = "HTTP/2 530 No Reason Phrase\r\n"
+		response = "HTTP/1.1 530\r\n"
 		body = "Error 1033"
 	} else {
 		return "", errors.New(fmt.Sprintf("not support code %v", code))
@@ -123,7 +123,6 @@ func vhostSNIFailed(c net.Conn, sni string) {
 	}
 	var certPEM = data.Cert
 	var keyPEM = data.Key
-	fmt.Println(certPEM, keyPEM)
 	cert, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
 	if err != nil {
 		fmt.Println("Error loading certificates:", err)
@@ -148,7 +147,8 @@ func vhostSNIFailed(c net.Conn, sni string) {
 
 		fmt.Printf("Received data: %s\n", buf)
 	*/
-	response, err := GetErrorResponse(530)
+	httpCode := 530
+	response, err := GetErrorResponse(httpCode)
 	if err != nil {
 		fmt.Println("GetErrorResponse", err)
 	}
@@ -161,7 +161,7 @@ func vhostSNIFailed(c net.Conn, sni string) {
 		return
 	}
 
-	fmt.Println(sni, "Sent 522 response")
+	fmt.Println(sni, "Sent %v response", httpCode)
 }
 
 type readOnlyConn struct {
