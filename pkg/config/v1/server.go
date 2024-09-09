@@ -15,7 +15,7 @@
 package v1
 
 import (
-	"fmt"
+	"time"
 	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/pkg/config/types"
@@ -25,6 +25,7 @@ import (
 type ServerConfig struct {
 	APIMetadata
 
+	UpTime int64 `json:upTime,omitempty"`
 	EnableMemReport *bool `json:"enableMemReport,omitempty"`
 	BandwidthLimiter BandwidthLimiterConfig `json:"bandwidthLimiter,omitempty"`
 	Cloud CloudConfig `json:"cloud,omitempty"`
@@ -104,6 +105,7 @@ type ServerConfig struct {
 }
 
 func (c *ServerConfig) Complete() {
+	c.UpTime = time.Now().UnixMilli()
 	c.EnableMemReport = util.EmptyOr(c.EnableMemReport, lo.ToPtr(true))
 	c.Cloud.Complete()
 	c.BandwidthLimiter.Complete()

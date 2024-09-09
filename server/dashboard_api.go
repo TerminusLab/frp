@@ -27,6 +27,7 @@ import (
 	"github.com/fatedier/frp/pkg/config/types"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/metrics/mem"
+	"github.com/fatedier/frp/pkg/metrics/memreport"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/log"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
@@ -60,8 +61,9 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 
 	limiterRouter := helper.Router.NewRoute().Subrouter()
 	limiterRouter.Use(netpkg.NewHTTPAuthMiddleware(svr.cfg.WebServer.UserForLimiter, svr.cfg.WebServer.PasswordForLimiter).SetAuthFailDelay(200 * time.Millisecond).Middleware)
-	limiterRouter.HandleFunc("/api/bandwidth", svr.updateLimiters).Methods("POST")
-	limiterRouter.HandleFunc("/api/bandwidth", svr.bandwidth).Methods("GET")
+	limiterRouter.HandleFunc("/api/bandwidth", svr.apiUpdateLimiters).Methods("POST")
+	limiterRouter.HandleFunc("/api/bandwidth", svr.apiBandwidth).Methods("GET")
+	limiterRouter.HandleFunc("/api/traffic", svr.apiTraffic).Methods("POST")
 
 	// view
 	subRouter.Handle("/favicon.ico", http.FileServer(helper.AssetsFS)).Methods("GET")
@@ -413,7 +415,7 @@ func (svr *Service) deleteProxies(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /api/bandwidth
-func (svr *Service) updateLimiters(w http.ResponseWriter, r *http.Request) {
+func (svr *Service) apiUpdateLimiters(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
 
 	log.Infof("Http request: [%s]", r.URL.Path)
@@ -446,8 +448,8 @@ type GetBandwidthResp struct {
 	BandwidthLimit       map[string]int64  `json:"bandwidthLimit"`
 }
 
-// /api/bandwidth
-func (svr *Service) bandwidth(w http.ResponseWriter, r *http.Request) {
+// GET /api/bandwidth
+func (svr *Service) apiBandwidth(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
 
 	log.Infof("Http request: [%s]", r.URL.Path)
@@ -470,5 +472,45 @@ func (svr *Service) bandwidth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	buf, _ := json.Marshal(&bandwidthResp)
+	res.Msg = string(buf)
+}
+
+type GetUserTrafficResp struct {
+	UpTimeMs int64 `json:"upTimeMs"`
+	TrafficByName []memreport.UserTrafficInfo `json:"trafficByName"`
+}
+
+// POST /api/trafffic
+func (svr *Service) apiTraffic(w http.ResponseWriter, r *http.Request) {
+	res := GeneralResponse{Code: 200}
+
+	log.Infof("Http request: [%s]", r.URL.Path)
+	defer func() {
+		log.Infof("Http response [%s]: code [%d]", r.URL.Path, res.Code)
+		w.WriteHeader(res.Code)
+		if len(res.Msg) > 0 {
+			_, _ = w.Write([]byte(res.Msg))
+		}
+	}()
+
+	log.Infof("%v", r.Body)
+	var terminusNames []string
+	err := json.NewDecoder(r.Body).Decode(&terminusNames)
+	if err != nil {
+		res.Code = 400
+		res.Msg = "invalid request body"
+		return
+	}
+
+	log.Infof("bandwidth change: %v", terminusNames)
+	for _, v := range terminusNames {
+		log.Infof("%s", v)
+	}
+
+	trafficResp := GetUserTrafficResp{}
+	trafficResp.UpTimeMs = svr.cfg.UpTime
+	trafficResp.TrafficByName = memreport.StatsCollector.GetUserTraffic(terminusNames)
+
+	buf, _ := json.Marshal(&trafficResp)
 	res.Msg = string(buf)
 }

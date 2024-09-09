@@ -26,9 +26,9 @@ const (
 )
 
 type UserTrafficInfo struct {
-	Name       string
-	TrafficIn  uint64
-	TrafficOut uint64
+	Name       string `json:"name"`
+	TrafficIn  uint64 `json:"trafficIn"`
+	TrafficOut uint64 `json:"trafficOut"`
 }
 
 type ServerStats struct {
@@ -98,4 +98,6 @@ type Collector interface {
 	GetProxiesByTypeAndName(proxyType string, proxyName string) *ProxyStats
 	GetProxyTraffic(name string) *ProxyTrafficInfo
 	ClearOfflineProxies() (int, int)
+
+	GetUserTraffic(names []string) []UserTrafficInfo
 }

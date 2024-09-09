@@ -110,7 +110,7 @@ func PostUsersTraffic(url string, interval int) {
 	for {
 		<-ticker.C
 		start := time.Now()
-		stats := sm.GetUsersTraffic()
+		stats := sm.GetAllUsersTraffic()
 		if err := doRequest(stats); err != nil {
 			log.Errorf("post users statistics data error: %v", err)
 		} else {
@@ -268,7 +268,7 @@ func (m *serverMetrics) AddTrafficOut(name string, _ string, trafficBytes int64)
 	}
 }
 
-func (m *serverMetrics) GetUsersTraffic() (res []UserTrafficInfo) {
+func (m *serverMetrics) GetAllUsersTraffic() (res []UserTrafficInfo) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -375,5 +375,19 @@ func (m *serverMetrics) GetProxyTraffic(name string) (res *ProxyTrafficInfo) {
 	return
 }
 
-func (m *serverMetrics) AddTrafficInReport(string, int64)  {}
-func (m *serverMetrics) AddTrafficOutReport(string, int64) {}
+func (m *serverMetrics) GetUserTraffic(names []string) (res []UserTrafficInfo) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	res = make([]UserTrafficInfo, 0)
+	for _, name := range names {
+		if userStat, ok := m.info.UserStatistics[name]; ok {
+			res = append(res, UserTrafficInfo{
+				Name:       name,
+				TrafficIn:  userStat.TrafficIn.Load(),
+				TrafficOut: userStat.TrafficOut.Load(),
+			})
+		}
+	}
+	return res
+}
