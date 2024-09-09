@@ -15,6 +15,7 @@
 package v1
 
 import (
+	"fmt"
 	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/pkg/config/types"
@@ -24,6 +25,7 @@ import (
 type ServerConfig struct {
 	APIMetadata
 
+	EnableMemReport *bool `json:"enableMemReport,omitempty"`
 	BandwidthLimiter BandwidthLimiterConfig `json:"bandwidthLimiter,omitempty"`
 	Cloud CloudConfig `json:"cloud,omitempty"`
 	CertDownload CertDownloadConfig `json:"certDownload,omitempty"`
@@ -102,6 +104,8 @@ type ServerConfig struct {
 }
 
 func (c *ServerConfig) Complete() {
+	c.EnableMemReport = util.EmptyOr(c.EnableMemReport, lo.ToPtr(true))
+	c.Cloud.Complete()
 	c.BandwidthLimiter.Complete()
 	c.Auth.Complete()
 	c.Log.Complete()
@@ -134,8 +138,14 @@ func (c *BandwidthLimiterConfig) Complete() {
 }
 
 type CloudConfig struct {
-	Url   string `json:url,omitempty"`
-	Token string `json:token,omitempty"`
+	Url                   string `json:url,omitempty"`
+	Token                 string `json:token,omitempty"`
+	ReportUrl             string `json:reportUrl,omitemtpy"`
+	ReportIntervalSeconds int    `json:reportIntervalSeconds,omitemtpy"`
+}
+
+func (c *CloudConfig) Complete() {
+	c.ReportIntervalSeconds = util.EmptyOr(c.ReportIntervalSeconds, 5 * 6)
 }
 
 type CertDownloadConfig struct {

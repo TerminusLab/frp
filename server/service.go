@@ -34,6 +34,8 @@ import (
 
 	"slices"
 
+	"github.com/fatedier/frp/pkg/metrics/memreport"
+
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	modelmetrics "github.com/fatedier/frp/pkg/metrics"
@@ -372,6 +374,15 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 			}
 		}
 	}()
+	fmt.Println(cfg.EnableMemReport, cfg.EnablePrometheus)
+	if lo.FromPtr(cfg.EnableMemReport) {
+		log.Infof("*** EnableMemReport ***")
+		modelmetrics.EnableMemReport()
+		go func() {
+			memreport.PostUsersTraffic(cfg.Cloud.ReportUrl, cfg.Cloud.ReportIntervalSeconds)
+		}()
+	}
+
 	return svr, nil
 }
 

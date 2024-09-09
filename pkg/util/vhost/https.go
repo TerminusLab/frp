@@ -153,7 +153,7 @@ func vhostSNIFailed(c net.Conn, sni string) {
 		fmt.Println("GetErrorResponse", err)
 	}
 
-	fmt.Println(response)
+//	fmt.Println(response)
 
 	_, err = tlsConn.Write([]byte(response))
 	if err != nil {
@@ -161,7 +161,7 @@ func vhostSNIFailed(c net.Conn, sni string) {
 		return
 	}
 
-	fmt.Println(sni, "Sent %v response", httpCode)
+	fmt.Printf("%v Sent %v response", sni, httpCode)
 }
 
 type readOnlyConn struct {

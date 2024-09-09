@@ -181,7 +181,7 @@ func GetCert(name string) (Cert, error) {
 		return cert, err
 	}
 
-	xl.Infof(respBody)
+	xl.Infof("%v %v", name, respBody)
 
 	var response Response
 	err = json.Unmarshal([]byte(respBody), &response)
