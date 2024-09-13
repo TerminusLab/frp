@@ -150,7 +150,7 @@ func (m *serverMetrics) CloseClient() {
 	m.info.ClientCounts.Dec(1)
 }
 
-func (m *serverMetrics) NewProxy(name string, proxyType string) {
+func (m *serverMetrics) NewProxy(user, name string, proxyType string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	counter, ok := m.info.ProxyTypeCounts[proxyType]
@@ -192,7 +192,7 @@ func (m *serverMetrics) NewProxy(name string, proxyType string) {
 
 }
 
-func (m *serverMetrics) CloseProxy(name string, proxyType string) {
+func (m *serverMetrics) CloseProxy(user, name string, proxyType string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if counter, ok := m.info.ProxyTypeCounts[proxyType]; ok {
@@ -232,7 +232,7 @@ func (m *serverMetrics) CloseConnection(name string, _ string) {
 	}
 }
 
-func (m *serverMetrics) AddTrafficIn(name string, _ string, trafficBytes int64) {
+func (m *serverMetrics) AddTrafficIn(user, name string, _ string, trafficBytes int64) {
 	m.info.TotalTrafficIn.Inc(trafficBytes)
 
 	m.mu.Lock()
@@ -244,13 +244,13 @@ func (m *serverMetrics) AddTrafficIn(name string, _ string, trafficBytes int64) 
 		m.info.ProxyStatistics[name] = proxyStats
 	}
 
-	if userStats, ok := m.info.UserStatistics[getUserNameFromProxy(name)]; ok {
+	if userStats, ok := m.info.UserStatistics[user]; ok {
 		userStats.TrafficIn.Add(uint64(trafficBytes))
-		m.info.UserStatistics[getUserNameFromProxy(name)] = userStats
+		m.info.UserStatistics[user] = userStats
 	}
 }
 
-func (m *serverMetrics) AddTrafficOut(name string, _ string, trafficBytes int64) {
+func (m *serverMetrics) AddTrafficOut(user, name string, _ string, trafficBytes int64) {
 	m.info.TotalTrafficOut.Inc(trafficBytes)
 
 	m.mu.Lock()
@@ -262,9 +262,9 @@ func (m *serverMetrics) AddTrafficOut(name string, _ string, trafficBytes int64)
 		m.info.ProxyStatistics[name] = proxyStats
 	}
 
-	if userStats, ok := m.info.UserStatistics[getUserNameFromProxy(name)]; ok {
+	if userStats, ok := m.info.UserStatistics[user]; ok {
 		userStats.TrafficOut.Add(uint64(trafficBytes))
-		m.info.UserStatistics[getUserNameFromProxy(name)] = userStats
+		m.info.UserStatistics[user] = userStats
 	}
 }
 

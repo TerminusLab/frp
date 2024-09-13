@@ -633,23 +633,6 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		return err
 	}
 
-	/*
-		var limitBytes int64 = 501 * types.KB
-		bandwidth, terminusNames, err := svr.limiterManager.GetBandwidthByTerminusName(loginMsg.User)
-		if err == nil {
-			limitBytes = bandwidth
-			svr.limiterManager.UpdateLimiterByGroup(terminusNames, limitBytes, int(1*limitBytes))
-		} else {
-			xl.Infof("USING DEFAULT BANDWIDTH: %v", limitBytes)
-			go func() {
-				svr.limiterManager.UpdateLimiterAfter(loginMsg.User)
-			}()
-		}
-
-		limiter := svr.limiterManager.GetRateLimiter(loginMsg.User, limitBytes, int(1*limitBytes))
-		xl.Infof("look %v %v %p", loginMsg.User, limitBytes, limiter)
-	*/
-
 	limiter := svr.limiterManager.GetLimiterByTerminusName(loginMsg.User)
 
 	// TODO(fatedier): use SessionContext

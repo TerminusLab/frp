@@ -355,7 +355,7 @@ func (ctl *Control) worker() {
 	for _, pxy := range ctl.proxies {
 		pxy.Close()
 		ctl.pxyManager.Del(pxy.GetName())
-		metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type)
+		metrics.Server.CloseProxy(pxy.GetUser(), pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type)
 
 		notifyContent := &plugin.CloseProxyContent{
 			User: plugin.UserInfo{
@@ -416,7 +416,7 @@ func (ctl *Control) handleNewProxy(m msg.Message) {
 	} else {
 		resp.RemoteAddr = remoteAddr
 		xl.Infof("new proxy [%s] type [%s] success", inMsg.ProxyName, inMsg.ProxyType)
-		metrics.Server.NewProxy(inMsg.ProxyName, inMsg.ProxyType)
+		metrics.Server.NewProxy(ctl.loginMsg.User, inMsg.ProxyName, inMsg.ProxyType)
 	}
 	_ = ctl.msgDispatcher.Send(resp)
 }
@@ -565,7 +565,7 @@ func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 	delete(ctl.proxies, closeMsg.ProxyName)
 	ctl.mu.Unlock()
 
-	metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type)
+	metrics.Server.CloseProxy(pxy.GetUser(), pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type)
 
 	notifyContent := &plugin.CloseProxyContent{
 		User: plugin.UserInfo{

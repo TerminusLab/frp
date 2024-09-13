@@ -57,6 +57,7 @@ type Proxy interface {
 	GetUserInfo() plugin.UserInfo
 	GetLimiter() *rate.Limiter
 	GetLoginMsg() *msg.Login
+	GetUser() string
 	Close()
 }
 
@@ -100,6 +101,15 @@ func (pxy *BaseProxy) GetUserInfo() plugin.UserInfo {
 
 func (pxy *BaseProxy) GetLoginMsg() *msg.Login {
 	return pxy.loginMsg
+}
+
+func (pxy *BaseProxy) GetUser() string {
+	var user string
+	if pxy.loginMsg != nil {
+		user = pxy.loginMsg.User
+	}
+
+	return user
 }
 
 func (pxy *BaseProxy) GetLimiter() *rate.Limiter {
@@ -261,13 +271,14 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	xl.Debugf("join connections, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", workConn.LocalAddr().String(),
 		workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String())
 
+	user := pxy.GetUser()
 	name := pxy.GetName()
 	proxyType := cfg.Type
 	metrics.Server.OpenConnection(name, proxyType)
 	inCount, outCount, _ := libio.Join(local, userConn)
 	metrics.Server.CloseConnection(name, proxyType)
-	metrics.Server.AddTrafficIn(name, proxyType, inCount)
-	metrics.Server.AddTrafficOut(name, proxyType, outCount)
+	metrics.Server.AddTrafficIn(user, name, proxyType, inCount)
+	metrics.Server.AddTrafficOut(user, name, proxyType, outCount)
 	xl.Debugf("join connections closed")
 }
 
