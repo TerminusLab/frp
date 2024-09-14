@@ -100,5 +100,5 @@ type Collector interface {
 	ClearOfflineProxies() (int, int)
 
 	GetUserTraffic(names []string) []UserTrafficInfo
-	GetAllUserTraffic() []UserTrafficInfo
+	GetAllUsersTraffic() []UserTrafficInfo
 }

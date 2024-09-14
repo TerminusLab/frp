@@ -531,7 +531,7 @@ func (svr *Service) GetApiTraffic(w http.ResponseWriter, r *http.Request) {
 
 	trafficResp := GetUserTrafficResp{}
 	trafficResp.UpTimeMs = svr.cfg.UpTime
-	trafficResp.TrafficByName = memreport.StatsCollector.GetAllUserTraffic()
+	trafficResp.TrafficByName = memreport.StatsCollector.GetAllUsersTraffic()
 
 	buf, _ := json.Marshal(&trafficResp)
 	res.Msg = string(buf)

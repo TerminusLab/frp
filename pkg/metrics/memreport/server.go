@@ -15,7 +15,6 @@
 package memreport
 
 import (
-	"strings"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -63,16 +62,6 @@ func newServerMetrics() *serverMetrics {
 			UserStatistics:  make(map[string]*UserStatistics),
 		},
 	}
-}
-
-// TODO: fix this function
-func getUserNameFromProxy(name string) string {
-	item := strings.Split(name, ".")
-	if len(item) > 2 {
-		log.Infof("%v", item)
-		return item[0] + "." + item[1]
-	}
-	return ""
 }
 
 func (m *serverMetrics) run() {
@@ -173,19 +162,15 @@ func (m *serverMetrics) NewProxy(user, name string, proxyType string) {
 	}
 	proxyStats.LastStartTime = time.Now()
 
-	userName := getUserNameFromProxy(name)
-	if userName == "" {
-		return
-	}
-	userStats, ok := m.info.UserStatistics[userName]
+	userStats, ok := m.info.UserStatistics[user]
 	if !ok {
 		userStats = &UserStatistics{
-			Name:       userName,
+			Name:       user,
 			TrafficIn:  &atomic.Uint64{},
 			TrafficOut: &atomic.Uint64{},
 			CurProxies: metric.NewCounter(),
 		}
-		m.info.UserStatistics[userName] = userStats
+		m.info.UserStatistics[user] = userStats
 	}
 	userStats.CurProxies.Inc(1)
 	userStats.LastStartTime = time.Now()
@@ -202,7 +187,7 @@ func (m *serverMetrics) CloseProxy(user, name string, proxyType string) {
 		proxyStats.LastCloseTime = time.Now()
 	}
 
-	if userStats, ok := m.info.UserStatistics[getUserNameFromProxy(name)]; ok {
+	if userStats, ok := m.info.UserStatistics[user]; ok {
 		userStats.CurProxies.Dec(1)
 		userStats.LastCloseTime = time.Now()
 	}
@@ -280,6 +265,7 @@ func (m *serverMetrics) GetAllUsersTraffic() (res []UserTrafficInfo) {
 			TrafficOut: userStat.TrafficOut.Load(),
 		})
 	}
+
 	return res
 }
 
@@ -388,22 +374,6 @@ func (m *serverMetrics) GetUserTraffic(names []string) (res []UserTrafficInfo) {
 				TrafficOut: userStat.TrafficOut.Load(),
 			})
 		}
-	}
-
-	return res
-}
-
-func (m *serverMetrics) GetAllUserTraffic() (res []UserTrafficInfo) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	res = make([]UserTrafficInfo, 0)
-	for name, userStat := range m.info.UserStatistics {
-		res = append(res, UserTrafficInfo{
-			Name:       name,
-			TrafficIn:  userStat.TrafficIn.Load(),
-			TrafficOut: userStat.TrafficOut.Load(),
-		})
 	}
 
 	return res
