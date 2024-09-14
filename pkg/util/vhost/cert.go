@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -95,13 +97,26 @@ func GetCertRequest(name, user, password, theurl string) (string, error) {
 }
 
 func GetTerminusNameFromSNI(input string) (string, error) {
+	var user, domain string
+	if net.ParseIP(input) != nil {
+		return "", errors.New("is ip")
+	}
+
 	parts := strings.Split(input, ".")
 	sniSplitLen := len(parts)
 	if sniSplitLen < 3 {
 		return "", errors.New("too short!")
+	} else if sniSplitLen == 3 {
+		user = parts[0]
+		domain = strings.Join(parts[1:], ".")
+	} else {
+		user = parts[1]
+		domain = strings.Join(parts[2:], ".")
 	}
 
-	return parts[sniSplitLen-3] + "@" + parts[sniSplitLen-2] + "." + parts[sniSplitLen-1], nil
+	terminusName := fmt.Sprintf("%s@%s", user, domain)
+
+	return terminusName, nil
 }
 
 func IsExpired(endDate string) (bool, error) {
@@ -125,39 +140,38 @@ func IsExpired(endDate string) (bool, error) {
 }
 
 func checkDid(did string) bool {
-        didLen := len(did)
-        if didLen < 1 || didLen > 63 {
-                return false
-        }
-        for i, c := range did {
-                if (i == 0 || (i == len(did)-1)) && c == '-' {
-                        return false
-                }
-                if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '-' {
-                        return false
-                }
-        }
+	didLen := len(did)
+	if didLen < 1 || didLen > 63 {
+		return false
+	}
+	for i, c := range did {
+		if (i == 0 || (i == len(did)-1)) && c == '-' {
+			return false
+		}
+		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '-' {
+			return false
+		}
+	}
 
-        if strings.Contains(did, "--") {
-                return false
-        }
+	if strings.Contains(did, "--") {
+		return false
+	}
 
-        return true
+	return true
 }
 
-
 func checkDomain(domain string) bool {
-        string_slice := strings.Split(domain, ".")
-        if len(string_slice) < 2 {
-                return false
-        }
-        for _, label := range string_slice {
-                if !checkDid(label) {
-                        return false
-                }
-        }
+	string_slice := strings.Split(domain, ".")
+	if len(string_slice) < 2 {
+		return false
+	}
+	for _, label := range string_slice {
+		if !checkDid(label) {
+			return false
+		}
+	}
 
-        return true
+	return true
 }
 
 func GetCert(name string) (Cert, error) {
