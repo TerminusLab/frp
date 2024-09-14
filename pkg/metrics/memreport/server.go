@@ -389,5 +389,22 @@ func (m *serverMetrics) GetUserTraffic(names []string) (res []UserTrafficInfo) {
 			})
 		}
 	}
+
+	return res
+}
+
+func (m *serverMetrics) GetAllUserTraffic() (res []UserTrafficInfo) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	res = make([]UserTrafficInfo, 0)
+	for name, userStat := range m.info.UserStatistics {
+		res = append(res, UserTrafficInfo{
+			Name:       name,
+			TrafficIn:  userStat.TrafficIn.Load(),
+			TrafficOut: userStat.TrafficOut.Load(),
+		})
+	}
+
 	return res
 }

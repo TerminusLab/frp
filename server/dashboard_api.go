@@ -64,6 +64,7 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	limiterRouter.HandleFunc("/api/bandwidth", svr.apiUpdateLimiters).Methods("POST")
 	limiterRouter.HandleFunc("/api/bandwidth", svr.apiBandwidth).Methods("GET")
 	limiterRouter.HandleFunc("/api/traffic", svr.apiTraffic).Methods("POST")
+	limiterRouter.HandleFunc("/api/traffic", svr.GetApiTraffic).Methods("GET")
 
 	// view
 	subRouter.Handle("/favicon.ico", http.FileServer(helper.AssetsFS)).Methods("GET")
@@ -510,6 +511,27 @@ func (svr *Service) apiTraffic(w http.ResponseWriter, r *http.Request) {
 	trafficResp := GetUserTrafficResp{}
 	trafficResp.UpTimeMs = svr.cfg.UpTime
 	trafficResp.TrafficByName = memreport.StatsCollector.GetUserTraffic(terminusNames)
+
+	buf, _ := json.Marshal(&trafficResp)
+	res.Msg = string(buf)
+}
+
+// GET /api/trafffic
+func (svr *Service) GetApiTraffic(w http.ResponseWriter, r *http.Request) {
+	res := GeneralResponse{Code: 200}
+
+	log.Infof("Http request: [%s]", r.URL.Path)
+	defer func() {
+		log.Infof("Http response [%s]: code [%d]", r.URL.Path, res.Code)
+		w.WriteHeader(res.Code)
+		if len(res.Msg) > 0 {
+			_, _ = w.Write([]byte(res.Msg))
+		}
+	}()
+
+	trafficResp := GetUserTrafficResp{}
+	trafficResp.UpTimeMs = svr.cfg.UpTime
+	trafficResp.TrafficByName = memreport.StatsCollector.GetAllUserTraffic()
 
 	buf, _ := json.Marshal(&trafficResp)
 	res.Msg = string(buf)

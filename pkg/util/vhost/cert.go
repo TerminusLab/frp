@@ -1,6 +1,7 @@
 package vhost
 
 import (
+	"sync"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -34,6 +35,20 @@ type Cert struct {
 }
 
 var certs map[string]Cert = make(map[string]Cert)
+var mu    sync.RWMutex
+
+func AddCertToCache(key string, cert Cert) {
+    mu.Lock()
+    defer mu.Unlock()
+    certs[key] = cert
+}
+
+func GetCertFromCache(key string) (Cert, bool) {
+    mu.RLock()
+    defer mu.RUnlock()
+    cert, exists := certs[key]
+    return cert, exists
+}
 
 func GetCertRequest(name, user, password, theurl string) (string, error) {
 	var ret string
@@ -182,7 +197,7 @@ func GetCert(name string) (Cert, error) {
 		return cert, err
 	}
 
-	if c, ok := certs[name]; ok {
+	if c, ok := GetCertFromCache(name); ok {
 		isExpired, err := IsExpired(c.EndDate)
 		if err == nil && !isExpired {
 			return c, nil
@@ -205,7 +220,7 @@ func GetCert(name string) (Cert, error) {
 	}
 
 	if response.Success {
-		certs[name] = response.Data
+		AddCertToCache(name, response.Data)
 		return response.Data, nil
 	}
 
