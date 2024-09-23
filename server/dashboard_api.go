@@ -15,6 +15,7 @@
 package server
 
 import (
+	"fmt"
 	"time"
 	"cmp"
 	"encoding/json"
@@ -446,7 +447,7 @@ func (svr *Service) apiUpdateLimiters(w http.ResponseWriter, r *http.Request) {
 }
 
 type GetBandwidthResp struct {
-	BandwidthLimit       map[string]int64  `json:"bandwidthLimit"`
+	BandwidthLimit       map[string]string  `json:"bandwidthLimit"`
 }
 
 // GET /api/bandwidth
@@ -468,8 +469,12 @@ func (svr *Service) apiBandwidth(w http.ResponseWriter, r *http.Request) {
 	terminusName := r.URL.Query().Get("name")
 
 	bandwidth := svr.limiterManager.GetBandwidth(terminusName)
+	outBandwidth := make(map[string]string)
+	for key, value := range bandwidth {
+		outBandwidth[key] = fmt.Sprintf("%vMb", float64(value)*8/1024/1024)
+	}
 	bandwidthResp := GetBandwidthResp{
-		BandwidthLimit: bandwidth,
+		BandwidthLimit: outBandwidth,
 	}
 
 	buf, _ := json.Marshal(&bandwidthResp)
