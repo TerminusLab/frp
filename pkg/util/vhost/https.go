@@ -161,7 +161,7 @@ func vhostSNIFailed(c net.Conn, sni string) {
 		return
 	}
 
-	fmt.Printf("%v Sent %v response", sni, httpCode)
+	fmt.Printf("%v Sent %v response\n", sni, httpCode)
 }
 
 type readOnlyConn struct {

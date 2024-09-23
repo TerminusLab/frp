@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,8 @@ import (
 	"slices"
 	"sync"
 	"time"
+	"strings"
+	"strconv"
 
 	"github.com/fatedier/frp/pkg/config/types"
 	"github.com/fatedier/frp/pkg/util/xlog"
@@ -31,6 +34,27 @@ func GetDefaultBandwidth() int64 {
 	} else {
 		return configBandwidth.Bytes()
 	}
+}
+
+func convertMbToMBAndKB(mbStr string) (string, error) {
+//        mbStr = strings.TrimSpace(strings.ToLower(mbStr))
+	suffix := "Mb"
+
+        if !strings.HasSuffix(mbStr, suffix) {
+                return "", fmt.Errorf("invalid format: %s", mbStr)
+        }
+
+        numberStr := strings.TrimSuffix(mbStr, suffix)
+
+        mbValue, err := strconv.ParseFloat(numberStr, 64)
+        if err != nil {
+                return "", fmt.Errorf("failed to parse number: %s", numberStr)
+        }
+
+        mbValueConverted := mbValue * 0.125
+        kbValue := mbValueConverted * 1024
+
+        return fmt.Sprintf("%vKB", int(kbValue)), nil
 }
 
 type LimiterManager struct {
@@ -165,7 +189,12 @@ func (lm *LimiterManager) GetBandwidthByTerminusName(terminusName string) (int64
 		if !slices.Contains(terminusNames, terminusName) {
 			return limitBytes, terminusNames, errors.New("invalid reponse")
 		}
-		bd, err := types.NewBandwidthQuantity(response.Data.DownBandwidth)
+		downBandwidth, err := convertMbToMBAndKB(response.Data.DownBandwidth)
+		if err != nil {
+			xl.Warnf("AAAAAAAAAAAAAAAAAAAAAAA %v %v", err, response.Data.DownBandwidth)
+			return limitBytes, terminusNames, err
+		}
+		bd, err := types.NewBandwidthQuantity(downBandwidth)
 		if err != nil {
 			xl.Warnf("VVVVVVVVVVVVVVVVVVVVVVV %v %v", err, response.Data.DownBandwidth)
 			return limitBytes, terminusNames, err
