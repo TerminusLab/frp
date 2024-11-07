@@ -25,6 +25,7 @@ import (
 //	"io/ioutil"
 
 	libnet "github.com/fatedier/golib/net"
+	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
 type HTTPSMuxer struct {
@@ -115,17 +116,19 @@ func GetErrorResponse(code int) (string, error) {
 
 func vhostSNIFailed(c net.Conn, sni string) {
 	defer c.Close()
-	fmt.Printf("sni ----------------------------> [%v]\n", sni)
+	xl := xlog.New()
+	xl.Infof("sni ---> [%v]", sni)
+
 	data, err := GetCert(sni)
 	if err != nil {
-		fmt.Println("Error Get certificates:", err)
+		xl.Warnf("Error Get certificates:", err)
 		return
 	}
 	var certPEM = data.Cert
 	var keyPEM = data.Key
 	cert, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
 	if err != nil {
-		fmt.Println("Error loading certificates:", err)
+		xl.Warnf("Error loading certificates:", err)
 		//		_ = tls.Server(c, &tls.Config{}).Handshake()
 		return
 	}
@@ -135,7 +138,7 @@ func vhostSNIFailed(c net.Conn, sni string) {
 	defer tlsConn.Close()
 
 	if err := tlsConn.Handshake(); err != nil {
-		fmt.Println("Handshake failed:", err)
+		xl.Warnf("Handshake failed:", err)
 		return
 	}
 	/*
@@ -150,18 +153,18 @@ func vhostSNIFailed(c net.Conn, sni string) {
 	httpCode := 530
 	response, err := GetErrorResponse(httpCode)
 	if err != nil {
-		fmt.Println("GetErrorResponse", err)
+		xl.Warnf("GetErrorResponse", err)
 	}
 
 //	fmt.Println(response)
 
 	_, err = tlsConn.Write([]byte(response))
 	if err != nil {
-		fmt.Println("Error writing response:", err)
+		xl.Warnf("Error writing response:", err)
 		return
 	}
 
-	fmt.Printf("%v Sent %v response\n", sni, httpCode)
+	xl.Infof("%v Sent %v response", sni, httpCode)
 }
 
 type readOnlyConn struct {

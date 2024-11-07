@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -51,16 +50,17 @@ func GetCertFromCache(key string) (Cert, bool) {
 }
 
 func GetCertRequest(name, user, password, theurl string) (string, error) {
+	xl := xlog.New()
 	var ret string
 
 	bodyReader := bytes.NewReader([]byte{})
 	requestUrl := theurl + "/download?name="
 	requestUrl += url.QueryEscape(name)
-	log.Println(http.MethodGet, requestUrl)
+	xl.Infof(http.MethodGet, requestUrl)
 
 	req, err := retryablehttp.NewRequest(http.MethodGet, requestUrl, bodyReader)
 	if err != nil {
-		log.Printf("client: could not create request: %s\n", err)
+		xl.Infof("client: could not create request: %s\n", err)
 		return ret, err
 	}
 	/*
@@ -78,7 +78,7 @@ func GetCertRequest(name, user, password, theurl string) (string, error) {
 	client.RequestLogHook = func(l retryablehttp.Logger, r *http.Request, attemptNum int) {
 		if attemptNum != 0 {
 			// l.Printf("Request: %s %s (attempt %d)", r.Method, r.URL, attemptNum)
-			log.Printf("RequestLogHook: %s %s (attempt %d)", r.Method, r.URL, attemptNum)
+			xl.Infof("RequestLogHook: %s %s (attempt %d)", r.Method, r.URL, attemptNum)
 			//			SendFeishu(fmt.Sprintf("retry -> %s", r.URL))
 		}
 	}
@@ -86,16 +86,16 @@ func GetCertRequest(name, user, password, theurl string) (string, error) {
 	client.ResponseLogHook = func(l retryablehttp.Logger, resp *http.Response) {
 		if resp.StatusCode != http.StatusOK {
 			// l.Printf("Response: %d", resp.StatusCode)
-			log.Printf("ResponseLogHook: %+v", resp)
+			xl.Infof("ResponseLogHook: %+v", resp)
 			//			SendFeishu(fmt.Sprintf("status: %s -> %s", resp.Status, resp.Request.URL))
 		}
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("client: error making http request: %s\n", err)
+		xl.Infof("client: error making http request: %s\n", err)
 		return ret, err
 	}
-	log.Printf("%+v", resp)
+	xl.Infof("%+v", resp)
 	if resp.StatusCode != http.StatusOK {
 		//		SendFeishu(resp.Status + " -> " + requestUrl)
 		return ret, errors.New(resp.Status)
@@ -106,7 +106,7 @@ func GetCertRequest(name, user, password, theurl string) (string, error) {
 	if err != nil {
 		return ret, err
 	}
-	log.Println(string(bds))
+	xl.Infof(string(bds))
 
 	return string(bds), nil
 }
