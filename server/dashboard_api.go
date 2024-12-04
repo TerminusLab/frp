@@ -429,7 +429,6 @@ func (svr *Service) apiUpdateLimiters(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	log.Infof("%v", r.Body)
 	var terminusNames []string
 	err := json.NewDecoder(r.Body).Decode(&terminusNames)
 	if err != nil {
@@ -499,7 +498,6 @@ func (svr *Service) apiTraffic(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	log.Infof("%v", r.Body)
 	var terminusNames []string
 	err := json.NewDecoder(r.Body).Decode(&terminusNames)
 	if err != nil {

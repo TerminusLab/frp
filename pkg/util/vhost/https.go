@@ -89,7 +89,8 @@ func GetErrorResponse(code int) (string, error) {
 		body = "error code: 522"
 	} else if code == 530 {
 		response = "HTTP/1.1 530\r\n"
-		body = "Error 1033"
+		//body = "Error 1033"
+		body = "Olares connection error"
 	} else {
 		return "", errors.New(fmt.Sprintf("not support code %v", code))
 	}
@@ -121,7 +122,7 @@ func vhostSNIFailed(c net.Conn, sni string) {
 
 	data, err := GetCert(sni)
 	if err != nil {
-		xl.Warnf("Error Get certificates:", err)
+		xl.Warnf("Error Get certificates: %v", err)
 		return
 	}
 	var certPEM = data.Cert

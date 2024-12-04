@@ -354,7 +354,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		for {
 			select {
 			case <-tick.C:
-				fmt.Println("tickerrrrrrrrrrrrrrrrrrrrrrrrrrrrr")
+				log.Infof("tickerrrrrrrrrrrrrrrrrrrrrrrrrrrrr")
 				onlineUsers := svr.ctlManager.GetUsers()
 				log.Infof("online users:%v", onlineUsers)
 				defaultBandwidthUsers := svr.limiterManager.GetUserUsingDefaultBandwidth()
