@@ -46,6 +46,7 @@ type (
 	authFunc        func(conn net.Conn, username, password string, reqInfoMap map[string]string) (bool, error)
 	hostRewriteFunc func(net.Conn, string) (net.Conn, error)
 	successHookFunc func(net.Conn, map[string]string) error
+	failHookSNIFunc func(net.Conn, string)
 	failHookFunc    func(net.Conn)
 )
 
@@ -60,6 +61,7 @@ type Muxer struct {
 	checkAuth      authFunc
 	successHook    successHookFunc
 	failHook       failHookFunc
+	failHookSNI    failHookSNIFunc
 	rewriteHost    hostRewriteFunc
 	registryRouter *Routers
 }
@@ -91,6 +93,11 @@ func (v *Muxer) SetSuccessHookFunc(f successHookFunc) *Muxer {
 
 func (v *Muxer) SetFailHookFunc(f failHookFunc) *Muxer {
 	v.failHook = f
+	return v
+}
+
+func (v *Muxer) SetFailHookSNIFunc(f failHookSNIFunc) *Muxer {
+	v.failHookSNI = f
 	return v
 }
 
@@ -214,7 +221,7 @@ func (v *Muxer) handle(c net.Conn) {
 	l, ok := v.getListener(name, path, httpUser)
 	if !ok {
 		log.Debugf("http request for host [%s] path [%s] httpUser [%s] not found", name, path, httpUser)
-		v.failHook(sConn)
+		v.failHookSNI(sConn, reqInfoMap["Host"])
 		return
 	}
 

@@ -12,15 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mem
+package memreport
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/metric"
 	server "github.com/fatedier/frp/server/metrics"
+
+//	"github.com/fatedier/frp/server/helper"
 )
 
 var (
@@ -33,7 +40,7 @@ var (
 func init() {
 	ServerMetrics = sm
 	StatsCollector = sm
-	sm.run()
+//	sm.run()
 }
 
 type serverMetrics struct {
@@ -52,6 +59,7 @@ func newServerMetrics() *serverMetrics {
 			ProxyTypeCounts: make(map[string]metric.Counter),
 
 			ProxyStatistics: make(map[string]*ProxyStatistics),
+			UserStatistics:  make(map[string]*UserStatistics),
 		},
 	}
 }
@@ -59,12 +67,45 @@ func newServerMetrics() *serverMetrics {
 func (m *serverMetrics) run() {
 	go func() {
 		for {
+			/*
 			time.Sleep(12 * time.Hour)
 			start := time.Now()
 			count, total := m.clearUselessInfo(time.Duration(7*24) * time.Hour)
 			log.Debugf("clear useless proxy statistics data count %d/%d, cost %v", count, total, time.Since(start))
+			*/
+//			PostUsersTraffic(helper.Cfg.Cloud.ReportUrl, helper.Cfg.Cloud.ReportIntervalSeconds)
 		}
 	}()
+}
+
+func PostUsersTraffic(url string, interval int) {
+	doRequest := func(stats []UserTrafficInfo) error {
+		data, _ := json.Marshal(stats)
+		log.Debugf("post data: %v", data)
+		response, err := http.Post(fmt.Sprintf("%s/users/traffic", url), "application/json", bytes.NewBuffer(data))
+		if err != nil {
+			return err
+		}
+		response.Body.Close()
+
+		if response.StatusCode != http.StatusOK {
+			return fmt.Errorf("post users traffic data error:%s", response.Status)
+		}
+		return nil
+	}
+
+	ticker := time.NewTicker(time.Duration(interval) * time.Second)
+	defer ticker.Stop()
+	for {
+		<-ticker.C
+		start := time.Now()
+		stats := sm.GetAllUsersTraffic()
+		if err := doRequest(stats); err != nil {
+			log.Errorf("post users statistics data error: %v", err)
+		} else {
+			log.Debugf("post users statistics data, count:%d, %v, cost %v", len(stats), stats, time.Since(start))
+		}
+	}
 }
 
 func (m *serverMetrics) clearUselessInfo(continuousOfflineDuration time.Duration) (int, int) {
@@ -98,7 +139,7 @@ func (m *serverMetrics) CloseClient() {
 	m.info.ClientCounts.Dec(1)
 }
 
-func (m *serverMetrics) NewProxy(_, name string, proxyType string) {
+func (m *serverMetrics) NewProxy(user, name string, proxyType string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	counter, ok := m.info.ProxyTypeCounts[proxyType]
@@ -120,9 +161,23 @@ func (m *serverMetrics) NewProxy(_, name string, proxyType string) {
 		m.info.ProxyStatistics[name] = proxyStats
 	}
 	proxyStats.LastStartTime = time.Now()
+
+	userStats, ok := m.info.UserStatistics[user]
+	if !ok {
+		userStats = &UserStatistics{
+			Name:       user,
+			TrafficIn:  &atomic.Uint64{},
+			TrafficOut: &atomic.Uint64{},
+			CurProxies: metric.NewCounter(),
+		}
+		m.info.UserStatistics[user] = userStats
+	}
+	userStats.CurProxies.Inc(1)
+	userStats.LastStartTime = time.Now()
+
 }
 
-func (m *serverMetrics) CloseProxy(_, name string, proxyType string) {
+func (m *serverMetrics) CloseProxy(user, name string, proxyType string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if counter, ok := m.info.ProxyTypeCounts[proxyType]; ok {
@@ -130,6 +185,11 @@ func (m *serverMetrics) CloseProxy(_, name string, proxyType string) {
 	}
 	if proxyStats, ok := m.info.ProxyStatistics[name]; ok {
 		proxyStats.LastCloseTime = time.Now()
+	}
+
+	if userStats, ok := m.info.UserStatistics[user]; ok {
+		userStats.CurProxies.Dec(1)
+		userStats.LastCloseTime = time.Now()
 	}
 }
 
@@ -157,7 +217,7 @@ func (m *serverMetrics) CloseConnection(name string, _ string) {
 	}
 }
 
-func (m *serverMetrics) AddTrafficIn(_, name string, _ string, trafficBytes int64) {
+func (m *serverMetrics) AddTrafficIn(user, name string, _ string, trafficBytes int64) {
 	m.info.TotalTrafficIn.Inc(trafficBytes)
 
 	m.mu.Lock()
@@ -168,9 +228,14 @@ func (m *serverMetrics) AddTrafficIn(_, name string, _ string, trafficBytes int6
 		proxyStats.TrafficIn.Inc(trafficBytes)
 		m.info.ProxyStatistics[name] = proxyStats
 	}
+
+	if userStats, ok := m.info.UserStatistics[user]; ok {
+		userStats.TrafficIn.Add(uint64(trafficBytes))
+		m.info.UserStatistics[user] = userStats
+	}
 }
 
-func (m *serverMetrics) AddTrafficOut(_, name string, _ string, trafficBytes int64) {
+func (m *serverMetrics) AddTrafficOut(user, name string, _ string, trafficBytes int64) {
 	m.info.TotalTrafficOut.Inc(trafficBytes)
 
 	m.mu.Lock()
@@ -181,6 +246,27 @@ func (m *serverMetrics) AddTrafficOut(_, name string, _ string, trafficBytes int
 		proxyStats.TrafficOut.Inc(trafficBytes)
 		m.info.ProxyStatistics[name] = proxyStats
 	}
+
+	if userStats, ok := m.info.UserStatistics[user]; ok {
+		userStats.TrafficOut.Add(uint64(trafficBytes))
+		m.info.UserStatistics[user] = userStats
+	}
+}
+
+func (m *serverMetrics) GetAllUsersTraffic() (res []UserTrafficInfo) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	res = make([]UserTrafficInfo, 0)
+	for name, userStat := range m.info.UserStatistics {
+		res = append(res, UserTrafficInfo{
+			Name:       name,
+			TrafficIn:  userStat.TrafficIn.Load(),
+			TrafficOut: userStat.TrafficOut.Load(),
+		})
+	}
+
+	return res
 }
 
 // Get stats data api.
@@ -273,4 +359,22 @@ func (m *serverMetrics) GetProxyTraffic(name string) (res *ProxyTrafficInfo) {
 		res.TrafficOut = proxyStats.TrafficOut.GetLastDaysCount(ReserveDays)
 	}
 	return
+}
+
+func (m *serverMetrics) GetUserTraffic(names []string) (res []UserTrafficInfo) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	res = make([]UserTrafficInfo, 0)
+	for _, name := range names {
+		if userStat, ok := m.info.UserStatistics[name]; ok {
+			res = append(res, UserTrafficInfo{
+				Name:       name,
+				TrafficIn:  userStat.TrafficIn.Load(),
+				TrafficOut: userStat.TrafficOut.Load(),
+			})
+		}
+	}
+
+	return res
 }

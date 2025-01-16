@@ -16,11 +16,16 @@ package vhost
 
 import (
 	"crypto/tls"
+	"fmt"
 	"io"
 	"net"
+	"strconv"
+	"errors"
 	"time"
+//	"io/ioutil"
 
 	libnet "github.com/fatedier/golib/net"
+	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
 type HTTPSMuxer struct {
@@ -30,6 +35,7 @@ type HTTPSMuxer struct {
 func NewHTTPSMuxer(listener net.Listener, timeout time.Duration) (*HTTPSMuxer, error) {
 	mux, err := NewMuxer(listener, GetHTTPSHostname, timeout)
 	mux.SetFailHookFunc(vhostFailed)
+	mux.SetFailHookSNIFunc(vhostSNIFailed)
 	if err != nil {
 		return nil, err
 	}
@@ -74,6 +80,92 @@ func vhostFailed(c net.Conn) {
 	// Alert with alertUnrecognizedName
 	_ = tls.Server(c, &tls.Config{}).Handshake()
 	c.Close()
+}
+
+func GetErrorResponse(code int) (string, error) {
+	var response, body string
+	if code == 522 {
+		response = "HTTP/1.1 522\r\n"
+		body = "error code: 522"
+	} else if code == 530 {
+		response = "HTTP/1.1 530\r\n"
+		//body = "Error 1033"
+		body = "Olares connection error"
+	} else {
+		return "", errors.New(fmt.Sprintf("not support code %v", code))
+	}
+
+	loc, err := time.LoadLocation("GMT")
+	if err != nil {
+		return "", err
+	}
+
+	response +=
+		"Date: " + time.Now().In(loc).Format(time.RFC1123) + "\r\n" +
+		"Content-Type: text/plain; charset=UTF-8\r\n" +
+		"Content-Length: " + strconv.Itoa(len(body)) + "\r\n" +
+		"X-Frame-Options: SAMEORIGIN\r\n" +
+		"Referrer-Policy: same-origin\r\n" +
+		"Cache-Control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0\r\n" +
+		"Expires: " + time.Unix(1, 0).In(loc).Format(time.RFC1123) + "\r\n" +
+		"Server: frp\r\n" +
+		"Connection: close\r\n" +
+		"\r\n" + body
+
+	return response, nil
+}
+
+func vhostSNIFailed(c net.Conn, sni string) {
+	defer c.Close()
+	xl := xlog.New()
+	xl.Infof("sni ---> [%v]", sni)
+
+	data, err := GetCert(sni)
+	if err != nil {
+		xl.Warnf("Error Get certificates: %v", err)
+		return
+	}
+	var certPEM = data.Cert
+	var keyPEM = data.Key
+	cert, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
+	if err != nil {
+		xl.Warnf("Error loading certificates:", err)
+		//		_ = tls.Server(c, &tls.Config{}).Handshake()
+		return
+	}
+	tlsConn := tls.Server(c, &tls.Config{
+		Certificates: []tls.Certificate{cert},
+	})
+	defer tlsConn.Close()
+
+	if err := tlsConn.Handshake(); err != nil {
+		xl.Warnf("Handshake failed:", err)
+		return
+	}
+	/*
+		buf, err := ioutil.ReadAll(tlsConn)
+		if err != nil {
+			fmt.Println("Error reading from connection:", err)
+			return
+		}
+
+		fmt.Printf("Received data: %s\n", buf)
+	*/
+	httpCode := 530
+	response, err := GetErrorResponse(httpCode)
+	if err != nil {
+		xl.Warnf("GetErrorResponse", err)
+	}
+
+//	fmt.Println(response)
+
+	_, err = tlsConn.Write([]byte(response))
+	if err != nil {
+		xl.Warnf("Error writing response:", err)
+		return
+	}
+
+	xl.Infof("%v Sent %v response", sni, httpCode)
 }
 
 type readOnlyConn struct {

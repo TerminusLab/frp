@@ -32,6 +32,10 @@ import (
 	quic "github.com/quic-go/quic-go"
 	"github.com/samber/lo"
 
+	"slices"
+
+//	"github.com/fatedier/frp/pkg/metrics/memreport"
+
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	modelmetrics "github.com/fatedier/frp/pkg/metrics"
@@ -50,6 +54,7 @@ import (
 	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/group"
+	"github.com/fatedier/frp/server/helper"
 	"github.com/fatedier/frp/server/metrics"
 	"github.com/fatedier/frp/server/ports"
 	"github.com/fatedier/frp/server/proxy"
@@ -125,9 +130,13 @@ type Service struct {
 	ctx context.Context
 	// call cancel to stop service
 	cancel context.CancelFunc
+
+	limiterManager *LimiterManager
 }
 
 func NewService(cfg *v1.ServerConfig) (*Service, error) {
+	helper.Cfg = cfg
+
 	tlsConfig, err := transport.NewServerTLSConfig(
 		cfg.Transport.TLS.CertFile,
 		cfg.Transport.TLS.KeyFile,
@@ -166,6 +175,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		tlsConfig:         tlsConfig,
 		cfg:               cfg,
 		ctx:               context.Background(),
+		limiterManager:    NewLimiterManager(),
 	}
 	if webServer != nil {
 		webServer.RouteRegister(svr.registerRouteHandlers)
@@ -336,6 +346,45 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		return nil, fmt.Errorf("create nat hole controller error, %v", err)
 	}
 	svr.rc.NatHoleController = nc
+
+	go svr.limiterManager.UpdateLoop()
+	go func() {
+		tick := time.NewTicker(30 * time.Minute)
+		defer tick.Stop()
+		for {
+			select {
+			case <-tick.C:
+				log.Infof("tickerrrrrrrrrrrrrrrrrrrrrrrrrrrrr")
+				onlineUsers := svr.ctlManager.GetUsers()
+				log.Infof("online users:%v", onlineUsers)
+				defaultBandwidthUsers := svr.limiterManager.GetUserUsingDefaultBandwidth()
+				log.Infof("default bandwidth users:%v", defaultBandwidthUsers)
+
+				var needUpdateUsers []string
+				for _, user := range defaultBandwidthUsers {
+					fmt.Println(onlineUsers, user, needUpdateUsers)
+					if slices.Contains(onlineUsers, user) {
+						needUpdateUsers = append(needUpdateUsers, user)
+					}
+				}
+				log.Infof("need update users : %v", needUpdateUsers)
+				for _, user := range needUpdateUsers {
+					svr.limiterManager.UpdateLimiterByTerminusName(user)
+				}
+			}
+		}
+	}()
+
+	if lo.FromPtr(cfg.EnableMemReport) {
+		log.Infof("*** EnableMemReport ***")
+		modelmetrics.EnableMemReport()
+		/*
+		go func() {
+			memreport.PostUsersTraffic(cfg.Cloud.ReportUrl, cfg.Cloud.ReportIntervalSeconds)
+		}()
+		*/
+	}
+
 	return svr, nil
 }
 
@@ -584,8 +633,10 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		return err
 	}
 
+	limiter := svr.limiterManager.GetLimiterByTerminusName(loginMsg.User)
+
 	// TODO(fatedier): use SessionContext
-	ctl, err := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, authVerifier, ctlConn, !internal, loginMsg, svr.cfg)
+	ctl, err := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, authVerifier, ctlConn, !internal, loginMsg, svr.cfg, limiter)
 	if err != nil {
 		xl.Warnf("create new controller error: %v", err)
 		// don't return detailed errors to client
