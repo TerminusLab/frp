@@ -15,8 +15,8 @@
 package v1
 
 import (
-	"time"
 	"github.com/samber/lo"
+	"time"
 
 	"github.com/fatedier/frp/pkg/config/types"
 	"github.com/fatedier/frp/pkg/util/util"
@@ -25,12 +25,12 @@ import (
 type ServerConfig struct {
 	APIMetadata
 
-	UpTime int64 `json:upTime,omitempty"`
-	EnableMemReport *bool `json:"enableMemReport,omitempty"`
+	UpTime           int64                  `json:upTime,omitempty"`
+	EnableMemReport  *bool                  `json:"enableMemReport,omitempty"`
 	BandwidthLimiter BandwidthLimiterConfig `json:"bandwidthLimiter,omitempty"`
-	Cloud CloudConfig `json:"cloud,omitempty"`
-	CertDownload CertDownloadConfig `json:"certDownload,omitempty"`
-	Auth AuthServerConfig `json:"auth,omitempty"`
+	Cloud            CloudConfig            `json:"cloud,omitempty"`
+	CertDownload     CertDownloadConfig     `json:"certDownload,omitempty"`
+	Auth             AuthServerConfig       `json:"auth,omitempty"`
 	// BindAddr specifies the address that the server binds to. By default,
 	// this value is "0.0.0.0".
 	BindAddr string `json:"bindAddr,omitempty"`
@@ -140,14 +140,14 @@ func (c *BandwidthLimiterConfig) Complete() {
 }
 
 type CloudConfig struct {
-	Url                   string `json:url,omitempty"`
+	URL                   string `json:url,omitempty"`
 	Token                 string `json:token,omitempty"`
 	ReportUrl             string `json:reportUrl,omitemtpy"`
 	ReportIntervalSeconds int    `json:reportIntervalSeconds,omitemtpy"`
 }
 
 func (c *CloudConfig) Complete() {
-	c.ReportIntervalSeconds = util.EmptyOr(c.ReportIntervalSeconds, 5 * 6)
+	c.ReportIntervalSeconds = util.EmptyOr(c.ReportIntervalSeconds, 5*6)
 }
 
 type CertDownloadConfig struct {

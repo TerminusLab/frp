@@ -161,7 +161,7 @@ func (lm *LimiterManager) GetBandwidthByTerminusName(terminusName string) (int64
 	var limitBytes int64
 	var terminusNames []string
 	xl := xlog.New()
-	respBody, err := lm.GetCommon(helper.Cfg.Cloud.Url+"/v1/resource/clusterUsers", []byte("terminusName="+terminusName))
+	respBody, err := lm.GetCommon(helper.Cfg.Cloud.URL+"/v1/resource/clusterUsers", []byte("terminusName="+terminusName))
 	if err != nil {
 		xl.Warnf("Get clsuter users: %v", err)
 		return limitBytes, terminusNames, err
