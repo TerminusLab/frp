@@ -5,23 +5,21 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"time"
-
-	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
 func SendRequest(requestURL string, requestData []byte) ([]byte, error) {
-	xl := xlog.New()
 	bodyReader := bytes.NewReader(requestData)
 	req, err := http.NewRequest(http.MethodPost, requestURL, bodyReader)
 	if err != nil {
-		xl.Infof("client: could not create request: %s", err)
+		log.Printf("client: could not create request: %s\n", err)
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	xl.Infof("%+v", req)
+	log.Printf("%+v", req)
 
 	client := http.Client{
 		Timeout: 5 * time.Second,
@@ -29,11 +27,11 @@ func SendRequest(requestURL string, requestData []byte) ([]byte, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		xl.Infof("client: error making http request: %s", err)
+		log.Printf("client: error making http request: %s\n", err)
 		return nil, err
 	}
 
-	xl.Infof("%+v", resp)
+	log.Printf("%+v\n", resp)
 
 	defer resp.Body.Close()
 
@@ -41,7 +39,7 @@ func SendRequest(requestURL string, requestData []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	xl.Infof(string(bds))
+	log.Println(string(bds))
 	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
 		return bds, nil
 	}
@@ -69,27 +67,26 @@ type VerifyResponse struct {
 }
 
 func Verify(jwsVerifyURL string, jws string, user string) (bool, error) {
-	xl := xlog.New()
-	xl.Infof(jwsVerifyURL, jws, user)
+	log.Println("jws: ", jwsVerifyURL, jws, user)
 	vr := VerifyRequest{
 		Jws: jws,
 	}
 	reqBytes, err := json.Marshal(vr)
 	if err != nil {
-		xl.Warnf("%v", err)
+		log.Println(err)
 		return false, err
 	}
 	requestURL := jwsVerifyURL
-	xl.Infof(requestURL)
+	log.Println(requestURL)
 	respBytes, err := SendRequest(requestURL, reqBytes)
 	if err != nil {
-		xl.Warnf("%v", err)
+		log.Println(err)
 		return false, err
 	}
 	var resp VerifyResponse
 	if err := json.Unmarshal(respBytes, &resp); err != nil {
 		errMsg := "unmarshalling json"
-		xl.Warnf(errMsg)
+		log.Println(errMsg)
 		return false, err
 	}
 
