@@ -20,7 +20,6 @@ import (
 	"io"
 	"net"
 	"strconv"
-	"errors"
 	"time"
 //	"io/ioutil"
 
@@ -92,7 +91,7 @@ func GetErrorResponse(code int) (string, error) {
 		//body = "Error 1033"
 		body = "Olares connection error"
 	} else {
-		return "", errors.New(fmt.Sprintf("not support code %v", code))
+		return "", fmt.Errorf("not support code %v", code)
 	}
 
 	loc, err := time.LoadLocation("GMT")
@@ -129,7 +128,7 @@ func vhostSNIFailed(c net.Conn, sni string) {
 	var keyPEM = data.Key
 	cert, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
 	if err != nil {
-		xl.Warnf("Error loading certificates:", err)
+		xl.Warnf("Error loading certificates: %v", err)
 		//		_ = tls.Server(c, &tls.Config{}).Handshake()
 		return
 	}
@@ -139,7 +138,7 @@ func vhostSNIFailed(c net.Conn, sni string) {
 	defer tlsConn.Close()
 
 	if err := tlsConn.Handshake(); err != nil {
-		xl.Warnf("Handshake failed:", err)
+		xl.Warnf("Handshake failed: %v", err)
 		return
 	}
 	/*
@@ -154,14 +153,14 @@ func vhostSNIFailed(c net.Conn, sni string) {
 	httpCode := 530
 	response, err := GetErrorResponse(httpCode)
 	if err != nil {
-		xl.Warnf("GetErrorResponse", err)
+		xl.Warnf("GetErrorResponse: %v", err)
 	}
 
 //	fmt.Println(response)
 
 	_, err = tlsConn.Write([]byte(response))
 	if err != nil {
-		xl.Warnf("Error writing response:", err)
+		xl.Warnf("Error writing response: %v", err)
 		return
 	}
 

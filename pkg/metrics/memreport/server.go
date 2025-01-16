@@ -26,8 +26,7 @@ import (
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/metric"
 	server "github.com/fatedier/frp/server/metrics"
-
-//	"github.com/fatedier/frp/server/helper"
+	//	"github.com/fatedier/frp/server/helper"
 )
 
 var (
@@ -40,7 +39,7 @@ var (
 func init() {
 	ServerMetrics = sm
 	StatsCollector = sm
-//	sm.run()
+	// sm.run()
 }
 
 type serverMetrics struct {
@@ -68,12 +67,12 @@ func (m *serverMetrics) run() {
 	go func() {
 		for {
 			/*
-			time.Sleep(12 * time.Hour)
-			start := time.Now()
-			count, total := m.clearUselessInfo(time.Duration(7*24) * time.Hour)
-			log.Debugf("clear useless proxy statistics data count %d/%d, cost %v", count, total, time.Since(start))
+				time.Sleep(12 * time.Hour)
+				start := time.Now()
+				count, total := m.clearUselessInfo(time.Duration(7*24) * time.Hour)
+				log.Debugf("clear useless proxy statistics data count %d/%d, cost %v", count, total, time.Since(start))
 			*/
-//			PostUsersTraffic(helper.Cfg.Cloud.ReportUrl, helper.Cfg.Cloud.ReportIntervalSeconds)
+			//			PostUsersTraffic(helper.Cfg.Cloud.ReportUrl, helper.Cfg.Cloud.ReportIntervalSeconds)
 		}
 	}()
 }

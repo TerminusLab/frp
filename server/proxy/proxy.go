@@ -300,6 +300,7 @@ func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
 	//	var limiter *rate.Limiter
 	limitBytes := configurer.GetBaseConfig().Transport.BandwidthLimit.Bytes()
 	if limitBytes > 0 && configurer.GetBaseConfig().Transport.BandwidthLimitMode == types.BandwidthLimitModeServer {
+		xl.Infof("make lint happy")
 		//		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
 	}
 

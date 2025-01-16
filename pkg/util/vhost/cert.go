@@ -54,11 +54,11 @@ func GetCertRequest(name, user, password, theurl string) (string, error) {
 	var ret string
 
 	bodyReader := bytes.NewReader([]byte{})
-	requestUrl := theurl + "/download?name="
-	requestUrl += url.QueryEscape(name)
-	xl.Infof(http.MethodGet, requestUrl)
+	requestURL := theurl + "/download?name="
+	requestURL += url.QueryEscape(name)
+	xl.Infof(http.MethodGet, requestURL)
 
-	req, err := retryablehttp.NewRequest(http.MethodGet, requestUrl, bodyReader)
+	req, err := retryablehttp.NewRequest(http.MethodGet, requestURL, bodyReader)
 	if err != nil {
 		xl.Infof("client: could not create request: %s\n", err)
 		return ret, err
@@ -120,7 +120,7 @@ func GetTerminusNameFromSNI(input string) (string, error) {
 	parts := strings.Split(input, ".")
 	sniSplitLen := len(parts)
 	if sniSplitLen < 3 {
-		return "", errors.New("too short!")
+		return "", errors.New("too short")
 	} else if sniSplitLen == 3 {
 		user = parts[0]
 		domain = strings.Join(parts[1:], ".")
@@ -148,10 +148,9 @@ func IsExpired(endDate string) (bool, error) {
 	if parsedTime.Before(advanced) {
 		xl.Infof("The end date is before the current time + 7.")
 		return true, nil
-	} else {
-		xl.Infof("The end date is not before the current time + 7.")
-		return false, nil
 	}
+	xl.Infof("The end date is not before the current time + 7.")
+	return false, nil
 }
 
 func checkDid(did string) bool {
