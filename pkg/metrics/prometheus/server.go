@@ -29,11 +29,11 @@ func (m *serverMetrics) CloseClient() {
 	m.clientCount.Dec()
 }
 
-func (m *serverMetrics) NewProxy(_, _ string, proxyType string) {
+func (m *serverMetrics) NewProxy(_ string, proxyType string) {
 	m.proxyCount.WithLabelValues(proxyType).Inc()
 }
 
-func (m *serverMetrics) CloseProxy(_, _ string, proxyType string) {
+func (m *serverMetrics) CloseProxy(_ string, proxyType string) {
 	m.proxyCount.WithLabelValues(proxyType).Dec()
 }
 
@@ -45,11 +45,11 @@ func (m *serverMetrics) CloseConnection(name string, proxyType string) {
 	m.connectionCount.WithLabelValues(name, proxyType).Dec()
 }
 
-func (m *serverMetrics) AddTrafficIn(_, name string, proxyType string, trafficBytes int64) {
+func (m *serverMetrics) AddTrafficIn(name string, proxyType string, trafficBytes int64) {
 	m.trafficIn.WithLabelValues(name, proxyType).Add(float64(trafficBytes))
 }
 
-func (m *serverMetrics) AddTrafficOut(_, name string, proxyType string, trafficBytes int64) {
+func (m *serverMetrics) AddTrafficOut(name string, proxyType string, trafficBytes int64) {
 	m.trafficOut.WithLabelValues(name, proxyType).Add(float64(trafficBytes))
 }
 

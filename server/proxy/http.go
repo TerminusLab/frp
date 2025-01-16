@@ -187,12 +187,11 @@ func (pxy *HTTPProxy) GetRealConn(remoteAddr string) (workConn net.Conn, err err
 }
 
 func (pxy *HTTPProxy) updateStatsAfterClosedConn(totalRead, totalWrite int64) {
-	user := pxy.GetUser()
 	name := pxy.GetName()
 	proxyType := pxy.GetConfigurer().GetBaseConfig().Type
 	metrics.Server.CloseConnection(name, proxyType)
-	metrics.Server.AddTrafficIn(user, name, proxyType, totalWrite)
-	metrics.Server.AddTrafficOut(user, name, proxyType, totalRead)
+	metrics.Server.AddTrafficIn(name, proxyType, totalWrite)
+	metrics.Server.AddTrafficOut(name, proxyType, totalRead)
 }
 
 func (pxy *HTTPProxy) Close() {

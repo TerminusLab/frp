@@ -15,7 +15,6 @@
 package v1
 
 import (
-	"time"
 	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/pkg/config/types"
@@ -25,11 +24,6 @@ import (
 type ServerConfig struct {
 	APIMetadata
 
-	UpTime int64 `json:upTime,omitempty"`
-	EnableMemReport *bool `json:"enableMemReport,omitempty"`
-	BandwidthLimiter BandwidthLimiterConfig `json:"bandwidthLimiter,omitempty"`
-	Cloud CloudConfig `json:"cloud,omitempty"`
-	CertDownload CertDownloadConfig `json:"certDownload,omitempty"`
 	Auth AuthServerConfig `json:"auth,omitempty"`
 	// BindAddr specifies the address that the server binds to. By default,
 	// this value is "0.0.0.0".
@@ -105,10 +99,6 @@ type ServerConfig struct {
 }
 
 func (c *ServerConfig) Complete() {
-	c.UpTime = time.Now().UnixMilli()
-	c.EnableMemReport = util.EmptyOr(c.EnableMemReport, lo.ToPtr(true))
-	c.Cloud.Complete()
-	c.BandwidthLimiter.Complete()
 	c.Auth.Complete()
 	c.Log.Complete()
 	c.Transport.Complete()
@@ -130,30 +120,6 @@ func (c *ServerConfig) Complete() {
 	c.UserConnTimeout = util.EmptyOr(c.UserConnTimeout, 10)
 	c.UDPPacketSize = util.EmptyOr(c.UDPPacketSize, 1500)
 	c.NatHoleAnalysisDataReserveHours = util.EmptyOr(c.NatHoleAnalysisDataReserveHours, 7*24)
-}
-
-type BandwidthLimiterConfig struct {
-	DefaultBandwidth types.BandwidthQuantity `json:defaultBandwidth,omitempty"`
-}
-
-func (c *BandwidthLimiterConfig) Complete() {
-}
-
-type CloudConfig struct {
-	Url                   string `json:url,omitempty"`
-	Token                 string `json:token,omitempty"`
-	ReportUrl             string `json:reportUrl,omitemtpy"`
-	ReportIntervalSeconds int    `json:reportIntervalSeconds,omitemtpy"`
-}
-
-func (c *CloudConfig) Complete() {
-	c.ReportIntervalSeconds = util.EmptyOr(c.ReportIntervalSeconds, 5 * 6)
-}
-
-type CertDownloadConfig struct {
-	Url      string `json:url,omitempty"`
-	User     string `json:"user,omitempty"`
-	Password string `json:"password,omitempty"`
 }
 
 type AuthServerConfig struct {

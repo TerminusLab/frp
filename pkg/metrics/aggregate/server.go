@@ -15,15 +15,10 @@
 package aggregate
 
 import (
-	"github.com/fatedier/frp/pkg/metrics/memreport"
 	"github.com/fatedier/frp/pkg/metrics/mem"
 	"github.com/fatedier/frp/pkg/metrics/prometheus"
 	"github.com/fatedier/frp/server/metrics"
 )
-
-func EnableMemReport() {
-	sm.Add(memreport.ServerMetrics)
-}
 
 // EnableMem start to mark metrics to memory monitor system.
 func EnableMem() {
@@ -61,15 +56,15 @@ func (m *serverMetrics) CloseClient() {
 	}
 }
 
-func (m *serverMetrics) NewProxy(user, name string, proxyType string) {
+func (m *serverMetrics) NewProxy(name string, proxyType string) {
 	for _, v := range m.ms {
-		v.NewProxy(user, name, proxyType)
+		v.NewProxy(name, proxyType)
 	}
 }
 
-func (m *serverMetrics) CloseProxy(user, name string, proxyType string) {
+func (m *serverMetrics) CloseProxy(name string, proxyType string) {
 	for _, v := range m.ms {
-		v.CloseProxy(user, name, proxyType)
+		v.CloseProxy(name, proxyType)
 	}
 }
 
@@ -85,14 +80,14 @@ func (m *serverMetrics) CloseConnection(name string, proxyType string) {
 	}
 }
 
-func (m *serverMetrics) AddTrafficIn(user, name string, proxyType string, trafficBytes int64) {
+func (m *serverMetrics) AddTrafficIn(name string, proxyType string, trafficBytes int64) {
 	for _, v := range m.ms {
-		v.AddTrafficIn(user, name, proxyType, trafficBytes)
+		v.AddTrafficIn(name, proxyType, trafficBytes)
 	}
 }
 
-func (m *serverMetrics) AddTrafficOut(user, name string, proxyType string, trafficBytes int64) {
+func (m *serverMetrics) AddTrafficOut(name string, proxyType string, trafficBytes int64) {
 	for _, v := range m.ms {
-		v.AddTrafficOut(user, name, proxyType, trafficBytes)
+		v.AddTrafficOut(name, proxyType, trafficBytes)
 	}
 }

@@ -98,7 +98,7 @@ func (m *serverMetrics) CloseClient() {
 	m.info.ClientCounts.Dec(1)
 }
 
-func (m *serverMetrics) NewProxy(_, name string, proxyType string) {
+func (m *serverMetrics) NewProxy(name string, proxyType string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	counter, ok := m.info.ProxyTypeCounts[proxyType]
@@ -122,7 +122,7 @@ func (m *serverMetrics) NewProxy(_, name string, proxyType string) {
 	proxyStats.LastStartTime = time.Now()
 }
 
-func (m *serverMetrics) CloseProxy(_, name string, proxyType string) {
+func (m *serverMetrics) CloseProxy(name string, proxyType string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if counter, ok := m.info.ProxyTypeCounts[proxyType]; ok {
@@ -157,7 +157,7 @@ func (m *serverMetrics) CloseConnection(name string, _ string) {
 	}
 }
 
-func (m *serverMetrics) AddTrafficIn(_, name string, _ string, trafficBytes int64) {
+func (m *serverMetrics) AddTrafficIn(name string, _ string, trafficBytes int64) {
 	m.info.TotalTrafficIn.Inc(trafficBytes)
 
 	m.mu.Lock()
@@ -170,7 +170,7 @@ func (m *serverMetrics) AddTrafficIn(_, name string, _ string, trafficBytes int6
 	}
 }
 
-func (m *serverMetrics) AddTrafficOut(_, name string, _ string, trafficBytes int64) {
+func (m *serverMetrics) AddTrafficOut(name string, _ string, trafficBytes int64) {
 	m.info.TotalTrafficOut.Inc(trafficBytes)
 
 	m.mu.Lock()
