@@ -21,10 +21,10 @@ import (
 	"net"
 	"strconv"
 	"time"
-//	"io/ioutil"
+	//	"io/ioutil"
 
-	libnet "github.com/fatedier/golib/net"
 	"github.com/fatedier/frp/pkg/util/xlog"
+	libnet "github.com/fatedier/golib/net"
 )
 
 type HTTPSMuxer struct {
@@ -101,15 +101,15 @@ func GetErrorResponse(code int) (string, error) {
 
 	response +=
 		"Date: " + time.Now().In(loc).Format(time.RFC1123) + "\r\n" +
-		"Content-Type: text/plain; charset=UTF-8\r\n" +
-		"Content-Length: " + strconv.Itoa(len(body)) + "\r\n" +
-		"X-Frame-Options: SAMEORIGIN\r\n" +
-		"Referrer-Policy: same-origin\r\n" +
-		"Cache-Control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0\r\n" +
-		"Expires: " + time.Unix(1, 0).In(loc).Format(time.RFC1123) + "\r\n" +
-		"Server: frp\r\n" +
-		"Connection: close\r\n" +
-		"\r\n" + body
+			"Content-Type: text/plain; charset=UTF-8\r\n" +
+			"Content-Length: " + strconv.Itoa(len(body)) + "\r\n" +
+			"X-Frame-Options: SAMEORIGIN\r\n" +
+			"Referrer-Policy: same-origin\r\n" +
+			"Cache-Control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0\r\n" +
+			"Expires: " + time.Unix(1, 0).In(loc).Format(time.RFC1123) + "\r\n" +
+			"Server: frp\r\n" +
+			"Connection: close\r\n" +
+			"\r\n" + body
 
 	return response, nil
 }
@@ -156,7 +156,7 @@ func vhostSNIFailed(c net.Conn, sni string) {
 		xl.Warnf("GetErrorResponse: %v", err)
 	}
 
-//	fmt.Println(response)
+	//	fmt.Println(response)
 
 	_, err = tlsConn.Write([]byte(response))
 	if err != nil {

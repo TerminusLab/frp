@@ -15,12 +15,12 @@
 package server
 
 import (
-	"fmt"
-	"time"
 	"cmp"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -446,7 +446,7 @@ func (svr *Service) apiUpdateLimiters(w http.ResponseWriter, r *http.Request) {
 }
 
 type GetBandwidthResp struct {
-	BandwidthLimit       map[string]string  `json:"bandwidthLimit"`
+	BandwidthLimit map[string]string `json:"bandwidthLimit"`
 }
 
 // GET /api/bandwidth
@@ -481,7 +481,7 @@ func (svr *Service) apiBandwidth(w http.ResponseWriter, r *http.Request) {
 }
 
 type GetUserTrafficResp struct {
-	UpTimeMs int64 `json:"upTimeMs"`
+	UpTimeMs      int64                       `json:"upTimeMs"`
 	TrafficByName []memreport.UserTrafficInfo `json:"trafficByName"`
 }
 

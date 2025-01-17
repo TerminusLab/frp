@@ -1,17 +1,17 @@
 package server
 
 import (
-	"fmt"
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"slices"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
-	"strings"
-	"strconv"
 
 	"github.com/fatedier/frp/pkg/config/types"
 	"github.com/fatedier/frp/pkg/util/xlog"
@@ -37,24 +37,24 @@ func GetDefaultBandwidth() int64 {
 }
 
 func convertMbToMBAndKB(mbStr string) (string, error) {
-//        mbStr = strings.TrimSpace(strings.ToLower(mbStr))
+	//        mbStr = strings.TrimSpace(strings.ToLower(mbStr))
 	suffix := "Mb"
 
-        if !strings.HasSuffix(mbStr, suffix) {
-                return "", fmt.Errorf("invalid format: %s", mbStr)
-        }
+	if !strings.HasSuffix(mbStr, suffix) {
+		return "", fmt.Errorf("invalid format: %s", mbStr)
+	}
 
-        numberStr := strings.TrimSuffix(mbStr, suffix)
+	numberStr := strings.TrimSuffix(mbStr, suffix)
 
-        mbValue, err := strconv.ParseFloat(numberStr, 64)
-        if err != nil {
-                return "", fmt.Errorf("failed to parse number: %s", numberStr)
-        }
+	mbValue, err := strconv.ParseFloat(numberStr, 64)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse number: %s", numberStr)
+	}
 
-        mbValueConverted := mbValue * 0.125
-        kbValue := mbValueConverted * 1024
+	mbValueConverted := mbValue * 0.125
+	kbValue := mbValueConverted * 1024
 
-        return fmt.Sprintf("%vKB", int(kbValue)), nil
+	return fmt.Sprintf("%vKB", int(kbValue)), nil
 }
 
 type LimiterManager struct {

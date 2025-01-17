@@ -15,8 +15,8 @@
 package v1
 
 import (
-	"time"
 	"github.com/samber/lo"
+	"time"
 
 	"github.com/fatedier/frp/pkg/config/types"
 	"github.com/fatedier/frp/pkg/util/util"
