@@ -15,8 +15,8 @@
 package aggregate
 
 import (
-	"github.com/fatedier/frp/pkg/metrics/memreport"
 	"github.com/fatedier/frp/pkg/metrics/mem"
+	"github.com/fatedier/frp/pkg/metrics/memreport"
 	"github.com/fatedier/frp/pkg/metrics/prometheus"
 	"github.com/fatedier/frp/server/metrics"
 )

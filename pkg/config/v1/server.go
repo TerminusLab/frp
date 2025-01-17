@@ -15,8 +15,8 @@
 package v1
 
 import (
-	"github.com/samber/lo"
 	"time"
+	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/pkg/config/types"
 	"github.com/fatedier/frp/pkg/util/util"
@@ -142,7 +142,7 @@ func (c *BandwidthLimiterConfig) Complete() {
 type CloudConfig struct {
 	URL                   string `json:url,omitempty"`
 	Token                 string `json:token,omitempty"`
-	ReportUrl             string `json:reportUrl,omitemtpy"`
+	ReportURL             string `json:reportUrl,omitemtpy"`
 	ReportIntervalSeconds int    `json:reportIntervalSeconds,omitemtpy"`
 }
 
@@ -151,7 +151,7 @@ func (c *CloudConfig) Complete() {
 }
 
 type CertDownloadConfig struct {
-	Url      string `json:url,omitempty"`
+	URL      string `json:url,omitempty"`
 	User     string `json:"user,omitempty"`
 	Password string `json:"password,omitempty"`
 }

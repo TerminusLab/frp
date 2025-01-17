@@ -1,7 +1,6 @@
 package vhost
 
 import (
-	"sync"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -11,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 	//	"encoding/base64"
 
@@ -34,19 +34,19 @@ type Cert struct {
 }
 
 var certs map[string]Cert = make(map[string]Cert)
-var mu    sync.RWMutex
+var mu sync.RWMutex
 
 func AddCertToCache(key string, cert Cert) {
-    mu.Lock()
-    defer mu.Unlock()
-    certs[key] = cert
+	mu.Lock()
+	defer mu.Unlock()
+	certs[key] = cert
 }
 
 func GetCertFromCache(key string) (Cert, bool) {
-    mu.RLock()
-    defer mu.RUnlock()
-    cert, exists := certs[key]
-    return cert, exists
+	mu.RLock()
+	defer mu.RUnlock()
+	cert, exists := certs[key]
+	return cert, exists
 }
 
 func GetCertRequest(name, user, password, theurl string) (string, error) {
@@ -204,7 +204,7 @@ func GetCert(name string) (Cert, error) {
 		xl.Warnf("is expired: %v err: %v", isExpired, err)
 	}
 
-	respBody, err := GetCertRequest(name, helper.Cfg.CertDownload.User, helper.Cfg.CertDownload.Password, helper.Cfg.CertDownload.Url)
+	respBody, err := GetCertRequest(name, helper.Cfg.CertDownload.User, helper.Cfg.CertDownload.Password, helper.Cfg.CertDownload.URL)
 	if err != nil {
 		return cert, err
 	}
