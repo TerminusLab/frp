@@ -22,8 +22,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/fatedier/frp/pkg/util/xlog"
 	libnet "github.com/fatedier/golib/net"
+
+	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
 type HTTPSMuxer struct {
@@ -87,7 +88,7 @@ func GetErrorResponse(code int) (string, error) {
 		body = "error code: 522"
 	} else if code == 530 {
 		response = "HTTP/1.1 530\r\n"
-		//body = "Error 1033"
+		// body = "Error 1033"
 		body = "Olares connection error"
 	} else {
 		return "", fmt.Errorf("not support code %v", code)
@@ -98,17 +99,16 @@ func GetErrorResponse(code int) (string, error) {
 		return "", err
 	}
 
-	response +=
-		"Date: " + time.Now().In(loc).Format(time.RFC1123) + "\r\n" +
-			"Content-Type: text/plain; charset=UTF-8\r\n" +
-			"Content-Length: " + strconv.Itoa(len(body)) + "\r\n" +
-			"X-Frame-Options: SAMEORIGIN\r\n" +
-			"Referrer-Policy: same-origin\r\n" +
-			"Cache-Control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0\r\n" +
-			"Expires: " + time.Unix(1, 0).In(loc).Format(time.RFC1123) + "\r\n" +
-			"Server: frp\r\n" +
-			"Connection: close\r\n" +
-			"\r\n" + body
+	response += "Date: " + time.Now().In(loc).Format(time.RFC1123) + "\r\n" +
+		"Content-Type: text/plain; charset=UTF-8\r\n" +
+		"Content-Length: " + strconv.Itoa(len(body)) + "\r\n" +
+		"X-Frame-Options: SAMEORIGIN\r\n" +
+		"Referrer-Policy: same-origin\r\n" +
+		"Cache-Control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0\r\n" +
+		"Expires: " + time.Unix(1, 0).In(loc).Format(time.RFC1123) + "\r\n" +
+		"Server: frp\r\n" +
+		"Connection: close\r\n" +
+		"\r\n" + body
 
 	return response, nil
 }
@@ -123,8 +123,8 @@ func vhostSNIFailed(c net.Conn, sni string) {
 		xl.Warnf("Error Get certificates: %v", err)
 		return
 	}
-	var certPEM = data.Cert
-	var keyPEM = data.Key
+	certPEM := data.Cert
+	keyPEM := data.Key
 	cert, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
 	if err != nil {
 		xl.Warnf("Error loading certificates: %v", err)

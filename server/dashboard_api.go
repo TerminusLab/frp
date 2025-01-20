@@ -61,7 +61,9 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	subRouter.HandleFunc("/api/proxies", svr.deleteProxies).Methods("DELETE")
 
 	limiterRouter := helper.Router.NewRoute().Subrouter()
-	limiterRouter.Use(netpkg.NewHTTPAuthMiddleware(svr.cfg.WebServer.UserForLimiter, svr.cfg.WebServer.PasswordForLimiter).SetAuthFailDelay(200 * time.Millisecond).Middleware)
+	limiterRouter.Use(netpkg.NewHTTPAuthMiddleware(svr.cfg.WebServer.UserForLimiter,
+		svr.cfg.WebServer.PasswordForLimiter).SetAuthFailDelay(200 * time.Millisecond).Middleware)
+
 	limiterRouter.HandleFunc("/api/bandwidth", svr.apiUpdateLimiters).Methods("POST")
 	limiterRouter.HandleFunc("/api/bandwidth", svr.apiBandwidth).Methods("GET")
 	limiterRouter.HandleFunc("/api/traffic", svr.apiTraffic).Methods("POST")

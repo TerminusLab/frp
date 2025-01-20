@@ -26,7 +26,6 @@ import (
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/metric"
 	server "github.com/fatedier/frp/server/metrics"
-	// "github.com/fatedier/frp/server/helper"
 )
 
 var (
@@ -174,7 +173,6 @@ func (m *serverMetrics) NewProxy(user, name string, proxyType string) {
 	}
 	userStats.CurProxies.Inc(1)
 	userStats.LastStartTime = time.Now()
-
 }
 
 func (m *serverMetrics) CloseProxy(user, name string, proxyType string) {

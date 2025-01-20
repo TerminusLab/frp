@@ -5,17 +5,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
+
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/server/helper"
-	"github.com/hashicorp/go-retryablehttp"
 )
 
 type Response struct {
@@ -31,8 +33,10 @@ type Cert struct {
 	EndDate string `json:"enddate"`
 }
 
-var certs map[string]Cert = make(map[string]Cert)
-var mu sync.RWMutex
+var (
+	certs map[string]Cert = make(map[string]Cert)
+	mu    sync.RWMutex
+)
 
 func AddCertToCache(key string, cert Cert) {
 	mu.Lock()
@@ -100,7 +104,7 @@ func GetCertRequest(name, user, password, theurl string) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	bds, err := ioutil.ReadAll(resp.Body)
+	bds, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return ret, err
 	}
@@ -151,6 +155,7 @@ func IsExpired(endDate string) (bool, error) {
 	return false, nil
 }
 
+/*
 func checkDid(did string) bool {
 	didLen := len(did)
 	if didLen < 1 || didLen > 63 {
@@ -185,6 +190,7 @@ func checkDomain(domain string) bool {
 
 	return true
 }
+*/
 
 func GetCert(name string) (Cert, error) {
 	xl := xlog.New()
@@ -222,5 +228,4 @@ func GetCert(name string) (Cert, error) {
 	}
 
 	return cert, errors.New(response.Message)
-
 }

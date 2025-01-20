@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"slices"
 	"strconv"
@@ -13,12 +13,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatedier/frp/pkg/config/types"
-	"github.com/fatedier/frp/pkg/util/xlog"
-	"github.com/fatedier/frp/server/helper"
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-retryablehttp"
 	"golang.org/x/time/rate"
+
+	"github.com/fatedier/frp/pkg/config/types"
+	"github.com/fatedier/frp/pkg/util/xlog"
+	"github.com/fatedier/frp/server/helper"
 )
 
 const (
@@ -113,7 +114,7 @@ func (lm *LimiterManager) GetRateLimiter(terminusName string, limitBytes int64, 
 		return limiter
 	} else {
 		l.SetLimit(rate.Limit(float64(limitBytes)))
-		l.SetBurst(int(burstBytes))
+		l.SetBurst(burstBytes)
 
 		return l
 	}
@@ -126,7 +127,7 @@ func (lm *LimiterManager) UpdateLimiterByGroup(terminusNames []string, limitByte
 	for i := range terminusNames {
 		if l, ok := lm.rateLimiter[terminusNames[i]]; ok {
 			l.SetLimit(rate.Limit(float64(limitBytes)))
-			l.SetBurst(int(burstBytes))
+			l.SetBurst(burstBytes)
 		}
 	}
 }
@@ -135,7 +136,7 @@ func (lm *LimiterManager) GetAllTerminusNames() (terminusNames []string) {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 
-	for key, _ := range lm.rateLimiter {
+	for key := range lm.rateLimiter {
 		terminusNames = append(terminusNames, key)
 	}
 
@@ -167,7 +168,7 @@ func (lm *LimiterManager) GetBandwidthByTerminusName(terminusName string) (int64
 		return limitBytes, terminusNames, err
 	}
 	xl.Infof(respBody)
-	var response Reponse
+	var response Response
 	err = json.Unmarshal([]byte(respBody), &response)
 	if err != nil {
 		xl.Warnf("Error: %v", err)
@@ -187,7 +188,7 @@ func (lm *LimiterManager) GetBandwidthByTerminusName(terminusName string) (int64
 		}
 		xl.Infof("%v", terminusNames)
 		if !slices.Contains(terminusNames, terminusName) {
-			return limitBytes, terminusNames, errors.New("invalid reponse")
+			return limitBytes, terminusNames, errors.New("invalid response")
 		}
 		downBandwidth, err := convertMbToMBAndKB(response.Data.DownBandwidth)
 		if err != nil {
@@ -234,14 +235,14 @@ func (lm *LimiterManager) GetCommon(requestUrl string, requestData []byte) (stri
 	client.RequestLogHook = func(l retryablehttp.Logger, r *http.Request, attemptNum int) {
 		if attemptNum != 0 {
 			xl.Warnf("RequestLogHook: %s %s (attempt %d)", r.Method, r.URL, attemptNum)
-			//SendFeishu(fmt.Sprintf("retry -> %s", r.URL))
+			// SendFeishu(fmt.Sprintf("retry -> %s", r.URL))
 		}
 	}
 
 	client.ResponseLogHook = func(l retryablehttp.Logger, resp *http.Response) {
 		if resp.StatusCode != http.StatusOK {
 			xl.Warnf("ResponseLogHook: %+v", resp)
-			//SendFeishu(fmt.Sprintf("status: %s -> %s", resp.Status, resp.Request.URL))
+			// SendFeishu(fmt.Sprintf("status: %s -> %s", resp.Status, resp.Request.URL))
 		}
 	}
 	resp, err := client.Do(req)
@@ -252,14 +253,14 @@ func (lm *LimiterManager) GetCommon(requestUrl string, requestData []byte) (stri
 	xl.Infof("%+v", resp)
 	defer resp.Body.Close()
 
-	bds, err := ioutil.ReadAll(resp.Body)
+	bds, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
 	body := string(bds)
 	xl.Infof(body)
 	if resp.StatusCode != http.StatusOK {
-		//SendFeishu(resp.Status + " -> " + requestUrl)
+		// SendFeishu(resp.Status + " -> " + requestUrl)
 		return body, errors.New(resp.Status)
 	}
 
@@ -279,7 +280,6 @@ func (lm *LimiterManager) UpdateLimiterAfter(terminusName string) {
 			if err == nil {
 				lm.UpdateLimiterByGroup(terminusNames, limitBytes, int(1*limitBytes))
 			}
-
 		}
 	}()
 }
@@ -324,7 +324,7 @@ func (lm *LimiterManager) UpdateLimiterByTerminusName(terminusName string) {
 
 func (lm *LimiterManager) GetLimiterByTerminusName(terminusName string) *rate.Limiter {
 	xl := xlog.New()
-	var limitBytes = GetDefaultBandwidth()
+	limitBytes := GetDefaultBandwidth()
 	bandwidth, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
 	if err == nil {
 		limitBytes = bandwidth
@@ -354,7 +354,7 @@ type ClusterUsers struct {
 	UpBandwidth   string  `json:"upBandwidth"`
 	DownBandwidth string  `json:"downBandwidth"`
 }
-type Reponse struct {
+type Response struct {
 	Code    int          `json:"code"`
 	Message string       `json:"message"`
 	Data    ClusterUsers `json:"data"`
