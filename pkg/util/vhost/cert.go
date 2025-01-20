@@ -12,8 +12,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	//	"encoding/base64"
-
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/server/helper"

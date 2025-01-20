@@ -21,7 +21,6 @@ import (
 	"net"
 	"strconv"
 	"time"
-	//	"io/ioutil"
 
 	"github.com/fatedier/frp/pkg/util/xlog"
 	libnet "github.com/fatedier/golib/net"
