@@ -26,7 +26,7 @@ import (
 type ServerConfig struct {
 	APIMetadata
 
-	UpTime           int64                  `json:upTime,omitempty"`
+	UpTime           int64                  `json:"upTime,omitempty"`
 	EnableMemReport  *bool                  `json:"enableMemReport,omitempty"`
 	BandwidthLimiter BandwidthLimiterConfig `json:"bandwidthLimiter,omitempty"`
 	Cloud            CloudConfig            `json:"cloud,omitempty"`
@@ -134,17 +134,17 @@ func (c *ServerConfig) Complete() {
 }
 
 type BandwidthLimiterConfig struct {
-	DefaultBandwidth types.BandwidthQuantity `json:defaultBandwidth,omitempty"`
+	DefaultBandwidth types.BandwidthQuantity `json:"defaultBandwidth,omitempty"`
 }
 
 func (c *BandwidthLimiterConfig) Complete() {
 }
 
 type CloudConfig struct {
-	URL                   string `json:url,omitempty"`
-	Token                 string `json:token,omitempty"`
-	ReportURL             string `json:reportUrl,omitemtpy"`
-	ReportIntervalSeconds int    `json:reportIntervalSeconds,omitemtpy"`
+	URL                   string `json:"url,omitempty"`
+	Token                 string `json:"token,omitempty"`
+	ReportURL             string `json:"reportUrl,omitemtpy"`
+	ReportIntervalSeconds int    `json:"reportIntervalSeconds,omitemtpy"`
 }
 
 func (c *CloudConfig) Complete() {
@@ -152,7 +152,7 @@ func (c *CloudConfig) Complete() {
 }
 
 type CertDownloadConfig struct {
-	URL      string `json:url,omitempty"`
+	URL      string `json:"url,omitempty"`
 	User     string `json:"user,omitempty"`
 	Password string `json:"password,omitempty"`
 }
