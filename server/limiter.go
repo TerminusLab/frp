@@ -215,11 +215,10 @@ func (lm *LimiterManager) GetBandwidthByTerminusName(terminusName string) (int64
 		}
 		xl.Infof("all: %v, div: %v", bd.Bytes(), limitBytes)
 		return limitBytes, terminusNames, nil
-	} else {
-		xl.Warnf("invalid  response for %v", terminusName)
-		//		SendFeishu
-		return limitBytes, terminusNames, errors.New("invalid response")
 	}
+
+	xl.Warnf("invalid  response for %v", terminusName)
+	return limitBytes, terminusNames, errors.New("invalid response")
 }
 
 func (lm *LimiterManager) GetCommon(requestURL string, requestData []byte) (string, error) {
