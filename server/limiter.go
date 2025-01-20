@@ -147,14 +147,22 @@ func (lm *LimiterManager) UpdateLoop() {
 	xl := xlog.New()
 	tick := time.NewTicker(1 * time.Hour)
 	defer tick.Stop()
-	for {
-		select {
-		case <-tick.C:
-			xl.Infof("Update All terminus name in local frp")
-			terminusNames := lm.GetAllTerminusNames()
-			xl.Infof("local terminus name list %v", terminusNames)
-			lm.UpdateLimiterByTerminusNames(terminusNames)
+	/*
+		for {
+			select {
+			case <-tick.C:
+				xl.Infof("Update All terminus name in local frp")
+				terminusNames := lm.GetAllTerminusNames()
+				xl.Infof("local terminus name list %v", terminusNames)
+				lm.UpdateLimiterByTerminusNames(terminusNames)
+			}
 		}
+	*/
+	for range tick.C {
+		xl.Infof("Update All terminus name in local frp")
+		terminusNames := lm.GetAllTerminusNames()
+		xl.Infof("local terminus name list %v", terminusNames)
+		lm.UpdateLimiterByTerminusNames(terminusNames)
 	}
 }
 
@@ -272,14 +280,24 @@ func (lm *LimiterManager) UpdateLimiterAfter(terminusName string) {
 	xl.AppendPrefix(terminusName)
 	timer := time.After(10 * time.Minute)
 
-	go func() {
-		select {
-		case <-timer:
-			xl.Infof("update limiteer for %v", terminusName)
-			limitBytes, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
-			if err == nil {
-				lm.UpdateLimiterByGroup(terminusNames, limitBytes, int(1*limitBytes))
+	/*
+		go func() {
+			select {
+			case <-timer:
+				xl.Infof("update limiteer for %v", terminusName)
+				limitBytes, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
+				if err == nil {
+					lm.UpdateLimiterByGroup(terminusNames, limitBytes, int(1*limitBytes))
+				}
 			}
+		}()
+	*/
+	go func() {
+		<-timer
+		xl.Infof("update limiter for %v", terminusName)
+		limitBytes, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
+		if err == nil {
+			lm.UpdateLimiterByGroup(terminusNames, limitBytes, int(1*limitBytes))
 		}
 	}()
 }

@@ -348,26 +348,47 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	go func() {
 		tick := time.NewTicker(30 * time.Minute)
 		defer tick.Stop()
-		for {
-			select {
-			case <-tick.C:
-				log.Infof("tickerrrrrrrrrrrrrrrrrrrrrrrrrrrrr")
-				onlineUsers := svr.ctlManager.GetUsers()
-				log.Infof("online users:%v", onlineUsers)
-				defaultBandwidthUsers := svr.limiterManager.GetUserUsingDefaultBandwidth()
-				log.Infof("default bandwidth users:%v", defaultBandwidthUsers)
+		/*
+			for {
+				select {
+				case <-tick.C:
+					log.Infof("tickerrrrrrrrrrrrrrrrrrrrrrrrrrrrr")
+					onlineUsers := svr.ctlManager.GetUsers()
+					log.Infof("online users:%v", onlineUsers)
+					defaultBandwidthUsers := svr.limiterManager.GetUserUsingDefaultBandwidth()
+					log.Infof("default bandwidth users:%v", defaultBandwidthUsers)
 
-				var needUpdateUsers []string
-				for _, user := range defaultBandwidthUsers {
-					fmt.Println(onlineUsers, user, needUpdateUsers)
-					if slices.Contains(onlineUsers, user) {
-						needUpdateUsers = append(needUpdateUsers, user)
+					var needUpdateUsers []string
+					for _, user := range defaultBandwidthUsers {
+						fmt.Println(onlineUsers, user, needUpdateUsers)
+						if slices.Contains(onlineUsers, user) {
+							needUpdateUsers = append(needUpdateUsers, user)
+						}
+					}
+					log.Infof("need update users : %v", needUpdateUsers)
+					for _, user := range needUpdateUsers {
+						svr.limiterManager.UpdateLimiterByTerminusName(user)
 					}
 				}
-				log.Infof("need update users : %v", needUpdateUsers)
-				for _, user := range needUpdateUsers {
-					svr.limiterManager.UpdateLimiterByTerminusName(user)
+			}
+		*/
+		for range tick.C {
+			log.Infof("tickerrrrrrrrrrrrrrrrrrrrrrrrrrrrr")
+			onlineUsers := svr.ctlManager.GetUsers()
+			log.Infof("online users:%v", onlineUsers)
+			defaultBandwidthUsers := svr.limiterManager.GetUserUsingDefaultBandwidth()
+			log.Infof("default bandwidth users:%v", defaultBandwidthUsers)
+
+			var needUpdateUsers []string
+			for _, user := range defaultBandwidthUsers {
+				fmt.Println(onlineUsers, user, needUpdateUsers)
+				if slices.Contains(onlineUsers, user) {
+					needUpdateUsers = append(needUpdateUsers, user)
 				}
+			}
+			log.Infof("need update users : %v", needUpdateUsers)
+			for _, user := range needUpdateUsers {
+				svr.limiterManager.UpdateLimiterByTerminusName(user)
 			}
 		}
 	}()

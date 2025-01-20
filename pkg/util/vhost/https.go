@@ -83,15 +83,29 @@ func vhostFailed(c net.Conn) {
 
 func GetErrorResponse(code int) (string, error) {
 	var response, body string
-	if code == 522 {
+	/*
+		if code == 522 {
+			response = "HTTP/1.1 522\r\n"
+			body = "error code: 522"
+		} else if code == 530 {
+			response = "HTTP/1.1 530\r\n"
+			// body = "Error 1033"
+			body = "Olares connection error"
+		} else {
+			return "", fmt.Errorf("not support code %v", code)
+		}
+	*/
+
+	switch code {
+	case 522:
 		response = "HTTP/1.1 522\r\n"
 		body = "error code: 522"
-	} else if code == 530 {
+	case 530:
 		response = "HTTP/1.1 530\r\n"
 		// body = "Error 1033"
 		body = "Olares connection error"
-	} else {
-		return "", fmt.Errorf("not support code %v", code)
+	default:
+		return "", fmt.Errorf("not supported code %v", code)
 	}
 
 	loc, err := time.LoadLocation("GMT")

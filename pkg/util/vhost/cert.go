@@ -121,15 +121,27 @@ func GetTerminusNameFromSNI(input string) (string, error) {
 
 	parts := strings.Split(input, ".")
 	sniSplitLen := len(parts)
-	if sniSplitLen < 3 {
+	switch {
+	case sniSplitLen < 3:
 		return "", errors.New("too short")
-	} else if sniSplitLen == 3 {
+	case sniSplitLen == 3:
 		user = parts[0]
 		domain = strings.Join(parts[1:], ".")
-	} else {
+	default:
 		user = parts[1]
 		domain = strings.Join(parts[2:], ".")
 	}
+	/*
+		if sniSplitLen < 3 {
+			return "", errors.New("too short")
+		} else if sniSplitLen == 3 {
+			user = parts[0]
+			domain = strings.Join(parts[1:], ".")
+		} else {
+			user = parts[1]
+			domain = strings.Join(parts[2:], ".")
+		}
+	*/
 
 	terminusName := fmt.Sprintf("%s@%s", user, domain)
 

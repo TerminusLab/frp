@@ -143,8 +143,8 @@ func (c *BandwidthLimiterConfig) Complete() {
 type CloudConfig struct {
 	URL                   string `json:"url,omitempty"`
 	Token                 string `json:"token,omitempty"`
-	ReportURL             string `json:"reportUrl,omitemtpy"`
-	ReportIntervalSeconds int    `json:"reportIntervalSeconds,omitemtpy"`
+	ReportURL             string `json:"reportUrl,omitempty"`
+	ReportIntervalSeconds int    `json:"reportIntervalSeconds,omitempty"`
 }
 
 func (c *CloudConfig) Complete() {

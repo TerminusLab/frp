@@ -62,20 +62,20 @@ func newServerMetrics() *serverMetrics {
 	}
 }
 
+/*
 func (m *serverMetrics) run() {
 	go func() {
 		for {
 			log.Infof("make lint happy")
-			/*
 				time.Sleep(12 * time.Hour)
 				start := time.Now()
 				count, total := m.clearUselessInfo(time.Duration(7*24) * time.Hour)
 				log.Debugf("clear useless proxy statistics data count %d/%d, cost %v", count, total, time.Since(start))
-			*/
-			//			PostUsersTraffic(helper.Cfg.Cloud.ReportUrl, helper.Cfg.Cloud.ReportIntervalSeconds)
+						PostUsersTraffic(helper.Cfg.Cloud.ReportUrl, helper.Cfg.Cloud.ReportIntervalSeconds)
 		}
 	}()
 }
+*/
 
 func PostUsersTraffic(url string, interval int) {
 	doRequest := func(stats []UserTrafficInfo) error {
