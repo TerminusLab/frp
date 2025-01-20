@@ -70,7 +70,9 @@ type WebServerConfig struct {
 	// User specifies the username that the web server will use for login.
 	User string `json:"user,omitempty"`
 	// Password specifies the password that the admin server will use for login.
-	Password string `json:"password,omitempty"`
+	Password           string `json:"password,omitempty"`
+	UserForLimiter     string `json:"userForLimiter,omitempty"`
+	PasswordForLimiter string `json:"passwordForLimiter,omitempty"`
 	// AssetsDir specifies the local directory that the admin server will load
 	// resources from. If this value is "", assets will be loaded from the
 	// bundled executable using embed package.

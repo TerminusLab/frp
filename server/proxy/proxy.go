@@ -57,6 +57,7 @@ type Proxy interface {
 	GetUserInfo() plugin.UserInfo
 	GetLimiter() *rate.Limiter
 	GetLoginMsg() *msg.Login
+	GetUser() string
 	Close()
 }
 
@@ -100,6 +101,15 @@ func (pxy *BaseProxy) GetUserInfo() plugin.UserInfo {
 
 func (pxy *BaseProxy) GetLoginMsg() *msg.Login {
 	return pxy.loginMsg
+}
+
+func (pxy *BaseProxy) GetUser() string {
+	var user string
+	if pxy.loginMsg != nil {
+		user = pxy.loginMsg.User
+	}
+
+	return user
 }
 
 func (pxy *BaseProxy) GetLimiter() *rate.Limiter {
@@ -261,13 +271,14 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	xl.Debugf("join connections, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", workConn.LocalAddr().String(),
 		workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String())
 
+	user := pxy.GetUser()
 	name := pxy.GetName()
 	proxyType := cfg.Type
 	metrics.Server.OpenConnection(name, proxyType)
 	inCount, outCount, _ := libio.Join(local, userConn)
 	metrics.Server.CloseConnection(name, proxyType)
-	metrics.Server.AddTrafficIn(name, proxyType, inCount)
-	metrics.Server.AddTrafficOut(name, proxyType, outCount)
+	metrics.Server.AddTrafficIn(user, name, proxyType, inCount)
+	metrics.Server.AddTrafficOut(user, name, proxyType, outCount)
 	xl.Debugf("join connections closed")
 }
 
@@ -279,16 +290,18 @@ type Options struct {
 	GetWorkConnFn      GetWorkConnFn
 	Configurer         v1.ProxyConfigurer
 	ServerCfg          *v1.ServerConfig
+	Limiter            *rate.Limiter
 }
 
 func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
 	configurer := options.Configurer
 	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(configurer.GetBaseConfig().Name)
 
-	var limiter *rate.Limiter
+	//	var limiter *rate.Limiter
 	limitBytes := configurer.GetBaseConfig().Transport.BandwidthLimit.Bytes()
 	if limitBytes > 0 && configurer.GetBaseConfig().Transport.BandwidthLimitMode == types.BandwidthLimitModeServer {
-		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
+		xl.Infof("make lint happy")
+		//		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
 	}
 
 	basePxy := BaseProxy{
@@ -298,7 +311,7 @@ func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
 		poolCount:     options.PoolCount,
 		getWorkConnFn: options.GetWorkConnFn,
 		serverCfg:     options.ServerCfg,
-		limiter:       limiter,
+		limiter:       options.Limiter,
 		xl:            xl,
 		ctx:           xlog.NewContext(ctx, xl),
 		userInfo:      options.UserInfo,

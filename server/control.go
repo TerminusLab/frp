@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/samber/lo"
+	"golang.org/x/time/rate"
 
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
@@ -81,6 +82,17 @@ func (cm *ControlManager) GetByID(runID string) (ctl *Control, ok bool) {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
 	ctl, ok = cm.ctlsByRunID[runID]
+	return
+}
+
+func (cm *ControlManager) GetUsers() (users []string) {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	for _, value := range cm.ctlsByRunID {
+		users = append(users, value.loginMsg.User)
+	}
+
 	return
 }
 
@@ -148,6 +160,8 @@ type Control struct {
 	xl     *xlog.Logger
 	ctx    context.Context
 	doneCh chan struct{}
+
+	limiter *rate.Limiter
 }
 
 // TODO(fatedier): Referencing the implementation of frpc, encapsulate the input parameters as SessionContext.
@@ -161,6 +175,7 @@ func NewControl(
 	ctlConnEncrypted bool,
 	loginMsg *msg.Login,
 	serverCfg *v1.ServerConfig,
+	limiter *rate.Limiter,
 ) (*Control, error) {
 	poolCount := loginMsg.PoolCount
 	if poolCount > int(serverCfg.Transport.MaxPoolCount) {
@@ -182,6 +197,7 @@ func NewControl(
 		xl:            xlog.FromContextSafe(ctx),
 		ctx:           ctx,
 		doneCh:        make(chan struct{}),
+		limiter:       limiter,
 	}
 	ctl.lastPing.Store(time.Now())
 
@@ -338,7 +354,7 @@ func (ctl *Control) worker() {
 	for _, pxy := range ctl.proxies {
 		pxy.Close()
 		ctl.pxyManager.Del(pxy.GetName())
-		metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type)
+		metrics.Server.CloseProxy(pxy.GetUser(), pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type)
 
 		notifyContent := &plugin.CloseProxyContent{
 			User: plugin.UserInfo{
@@ -399,7 +415,7 @@ func (ctl *Control) handleNewProxy(m msg.Message) {
 	} else {
 		resp.RemoteAddr = remoteAddr
 		xl.Infof("new proxy [%s] type [%s] success", inMsg.ProxyName, inMsg.ProxyType)
-		metrics.Server.NewProxy(inMsg.ProxyName, inMsg.ProxyType)
+		metrics.Server.NewProxy(ctl.loginMsg.User, inMsg.ProxyName, inMsg.ProxyType)
 	}
 	_ = ctl.msgDispatcher.Send(resp)
 }
@@ -480,6 +496,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		GetWorkConnFn:      ctl.GetWorkConn,
 		Configurer:         pxyConf,
 		ServerCfg:          ctl.serverCfg,
+		Limiter:            ctl.limiter,
 	})
 	if err != nil {
 		return remoteAddr, err
@@ -547,7 +564,7 @@ func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 	delete(ctl.proxies, closeMsg.ProxyName)
 	ctl.mu.Unlock()
 
-	metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type)
+	metrics.Server.CloseProxy(pxy.GetUser(), pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type)
 
 	notifyContent := &plugin.CloseProxyContent{
 		User: plugin.UserInfo{
