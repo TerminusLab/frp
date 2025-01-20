@@ -67,7 +67,7 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	limiterRouter.HandleFunc("/api/bandwidth", svr.apiUpdateLimiters).Methods("POST")
 	limiterRouter.HandleFunc("/api/bandwidth", svr.apiBandwidth).Methods("GET")
 	limiterRouter.HandleFunc("/api/traffic", svr.apiTraffic).Methods("POST")
-	limiterRouter.HandleFunc("/api/traffic", svr.GetApiTraffic).Methods("GET")
+	limiterRouter.HandleFunc("/api/traffic", svr.GetAPITraffic).Methods("GET")
 
 	// view
 	subRouter.Handle("/favicon.ico", http.FileServer(helper.AssetsFS)).Methods("GET")
@@ -522,7 +522,7 @@ func (svr *Service) apiTraffic(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /api/trafffic
-func (svr *Service) GetApiTraffic(w http.ResponseWriter, r *http.Request) {
+func (svr *Service) GetAPITraffic(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
 
 	log.Infof("Http request: [%s]", r.URL.Path)

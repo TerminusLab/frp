@@ -34,7 +34,7 @@ type Cert struct {
 }
 
 var (
-	certs map[string]Cert = make(map[string]Cert)
+	certs = make(map[string]Cert)
 	mu    sync.RWMutex
 )
 
@@ -99,7 +99,7 @@ func GetCertRequest(name, user, password, theurl string) (string, error) {
 	}
 	xl.Infof("%+v", resp)
 	if resp.StatusCode != http.StatusOK {
-		//		SendFeishu(resp.Status + " -> " + requestUrl)
+		// SendFeishu(resp.Status + " -> " + requestURL)
 		return ret, errors.New(resp.Status)
 	}
 	defer resp.Body.Close()

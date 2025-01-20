@@ -32,9 +32,8 @@ func GetDefaultBandwidth() int64 {
 	xl.Infof("config default bandwidth: [%v]", configBandwidth.String())
 	if configBandwidth.Bytes() < DefaultLimitBandwidth {
 		return DefaultLimitBandwidth
-	} else {
-		return configBandwidth.Bytes()
 	}
+	return configBandwidth.Bytes()
 }
 
 func convertMbToMBAndKB(mbStr string) (string, error) {
@@ -107,17 +106,17 @@ func (lm *LimiterManager) GetRateLimiter(terminusName string, limitBytes int64, 
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 
-	if l, ok := lm.rateLimiter[terminusName]; !ok {
-		limiter := rate.NewLimiter(rate.Limit(float64(limitBytes)), burstBytes)
-		lm.rateLimiter[terminusName] = limiter
-
-		return limiter
-	} else {
+	if l, ok := lm.rateLimiter[terminusName]; ok {
 		l.SetLimit(rate.Limit(float64(limitBytes)))
 		l.SetBurst(burstBytes)
 
 		return l
 	}
+
+	limiter := rate.NewLimiter(rate.Limit(float64(limitBytes)), burstBytes)
+	lm.rateLimiter[terminusName] = limiter
+
+	return limiter
 }
 
 func (lm *LimiterManager) UpdateLimiterByGroup(terminusNames []string, limitBytes int64, burstBytes int) {
@@ -183,13 +182,13 @@ func (lm *LimiterManager) GetBandwidthByTerminusName(terminusName string) (int64
 		return limitBytes, terminusNames, err
 	}
 	xl.Debugf("response: %v", response)
-	if response.Code == 200 && response.Data.TerminusId != "" {
-		parsedUUID, err := uuid.Parse(response.Data.TerminusId)
+	if response.Code == 200 && response.Data.TerminusID != "" {
+		parsedUUID, err := uuid.Parse(response.Data.TerminusID)
 		if err != nil {
-			xl.Warnf("Invalid uuid %v", response.Data.TerminusId)
+			xl.Warnf("Invalid uuid %v", response.Data.TerminusID)
 			return limitBytes, terminusNames, err
 		}
-		xl.Warnf("%v %v", response.Data.TerminusId, parsedUUID)
+		xl.Warnf("%v %v", response.Data.TerminusID, parsedUUID)
 		//		terminusId := parsedUUID.String()
 		for _, v := range response.Data.Users {
 			terminusNames = append(terminusNames, v.TerminusName)
@@ -207,15 +206,15 @@ func (lm *LimiterManager) GetBandwidthByTerminusName(terminusName string) (int64
 		if err != nil {
 			xl.Warnf("VVVVVVVVVVVVVVVVVVVVVVV %v %v", err, response.Data.DownBandwidth)
 			return limitBytes, terminusNames, err
-		} else {
-			limitBytes := bd.Bytes()
-			count := len(terminusNames)
-			if count > 0 {
-				limitBytes /= int64(count)
-			}
-			xl.Infof("all: %v, div: %v", bd.Bytes(), limitBytes)
-			return limitBytes, terminusNames, nil
 		}
+
+		limitBytes := bd.Bytes()
+		count := len(terminusNames)
+		if count > 0 {
+			limitBytes /= int64(count)
+		}
+		xl.Infof("all: %v, div: %v", bd.Bytes(), limitBytes)
+		return limitBytes, terminusNames, nil
 	} else {
 		xl.Warnf("invalid  response for %v", terminusName)
 		//		SendFeishu
@@ -223,11 +222,11 @@ func (lm *LimiterManager) GetBandwidthByTerminusName(terminusName string) (int64
 	}
 }
 
-func (lm *LimiterManager) GetCommon(requestUrl string, requestData []byte) (string, error) {
+func (lm *LimiterManager) GetCommon(requestURL string, requestData []byte) (string, error) {
 	xl := xlog.New()
 
 	bodyReader := bytes.NewReader(requestData)
-	req, err := retryablehttp.NewRequest(http.MethodPost, requestUrl, bodyReader)
+	req, err := retryablehttp.NewRequest(http.MethodPost, requestURL, bodyReader)
 	if err != nil {
 		xl.Warnf("client: could not create request: %s\n", err)
 		return "", err
@@ -268,7 +267,7 @@ func (lm *LimiterManager) GetCommon(requestUrl string, requestData []byte) (stri
 	body := string(bds)
 	xl.Infof(body)
 	if resp.StatusCode != http.StatusOK {
-		// SendFeishu(resp.Status + " -> " + requestUrl)
+		// SendFeishu(resp.Status + " -> " + requestURL)
 		return body, errors.New(resp.Status)
 	}
 
@@ -367,7 +366,7 @@ type Users struct {
 }
 
 type ClusterUsers struct {
-	TerminusId    string  `json:"terminusId"`
+	TerminusID    string  `json:"terminusId"`
 	Users         []Users `json:"users"`
 	UpBandwidth   string  `json:"upBandwidth"`
 	DownBandwidth string  `json:"downBandwidth"`
