@@ -15,6 +15,7 @@
 package msg
 
 import (
+	"fmt"
 	"io"
 	"reflect"
 )
@@ -56,7 +57,9 @@ func (d *Dispatcher) sendLoop() {
 		case <-d.doneCh:
 			return
 		case m := <-d.sendCh:
-			_ = WriteMsg(d.rw, m)
+			if err := WriteMsg(d.rw, m); err != nil {
+				fmt.Printf("write message error: %s\n", err.Error())
+			}
 		}
 	}
 }
@@ -65,6 +68,7 @@ func (d *Dispatcher) readLoop() {
 	for {
 		m, err := ReadMsg(d.rw)
 		if err != nil {
+			fmt.Printf("read message error:  %s\n", err.Error())
 			close(d.doneCh)
 			return
 		}
