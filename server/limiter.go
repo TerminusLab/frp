@@ -234,8 +234,8 @@ func (lm *LimiterManager) GetCommon(requestURL string, requestData []byte) (stri
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	client := retryablehttp.NewClient()
-	client.HTTPClient.Timeout = 15 * time.Second
-	client.RetryMax = 1
+	client.HTTPClient.Timeout = 8 * time.Second
+	client.RetryMax = 0
 	client.RetryWaitMin = 1 * time.Second
 	client.RetryWaitMax = 10 * time.Second
 	client.RequestLogHook = func(l retryablehttp.Logger, r *http.Request, attemptNum int) {
