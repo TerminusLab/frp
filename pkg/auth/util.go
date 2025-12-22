@@ -10,9 +10,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/hashicorp/go-retryablehttp"
+
 	"github.com/fatedier/frp/pkg/util/feishu"
 	"github.com/fatedier/frp/pkg/util/xlog"
-	"github.com/hashicorp/go-retryablehttp"
 )
 
 func SendRequest(requestURL string, requestData []byte) ([]byte, error) {

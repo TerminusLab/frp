@@ -160,7 +160,7 @@ type CertDownloadConfig struct {
 }
 
 type FeishuConfig struct {
-	Enable             *bool   `json:"enable,omitempty"`
+	Enable             *bool  `json:"enable,omitempty"`
 	URL                string `json:"url,omitempty"`
 	Sender             string `json:"sender,omitempty"`
 	WaitDurationSecond uint   `json:"waitDuration,omitempty"`

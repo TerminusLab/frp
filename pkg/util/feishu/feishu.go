@@ -36,10 +36,7 @@ type msgRecord struct {
 	firstSeen time.Time
 }
 
-var (
-	// aggregationMap stores key -> *msgRecord
-	aggregationMap sync.Map
-)
+var aggregationMap sync.Map
 
 func retrySendCard(url, title, content, note, template string) error {
 	var err error
@@ -201,6 +198,7 @@ func sendCard(webhookURL, title, content, note, templateColor string) error {
 
 	return send(webhookURL, payload)
 }
+
 /*
 // sendSimpleText sends plain text message (kept for compatibility or simple logs)
 func sendSimpleText(webhookURL, text string) error {
