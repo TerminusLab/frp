@@ -147,7 +147,7 @@ func Verify(jwsVerifyURL string, jws string, user string) (bool, error) {
 	}
 	reqBytes, err := json.Marshal(vr)
 	if err != nil {
-		feishu.SendError(title, user+" **Marshal Error**")
+		_ = feishu.SendError(title, user+" **Marshal Error**")
 		xl.Warnf("marshal error: %v", err)
 		return false, err
 	}
@@ -158,24 +158,24 @@ func Verify(jwsVerifyURL string, jws string, user string) (bool, error) {
 		if respBytes != nil {
 			content += fmt.Sprintf("\n**%s**", string(respBytes))
 		}
-		feishu.SendError(title, content)
+		_ = feishu.SendError(title, content)
 		xl.Warnf("send request error: %v", err)
 		return false, err
 	}
 
 	var resp VerifyResponse
 	if err := json.Unmarshal(respBytes, &resp); err != nil {
-		feishu.SendError(title, user+" **Unmarshal Error**")
+		_ = feishu.SendError(title, user+" **Unmarshal Error**")
 		xl.Warnf("unmarshal error: %v", err)
 		return false, err
 	}
 
 	if !resp.Verify {
-		feishu.SendError(title, user+" **Verify False**")
+		_ = feishu.SendError(title, user+" **Verify False**")
 		return false, errors.New("verify false")
 	}
 	if resp.Payload.Name != user {
-		feishu.SendError(title, user+" **Does Not Match With JWS Signer ** "+resp.Payload.Name)
+		_ = feishu.SendError(title, user+" **Does Not Match With JWS Signer ** "+resp.Payload.Name)
 		return false, errors.New("signer not match")
 	}
 

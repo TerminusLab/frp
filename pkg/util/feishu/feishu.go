@@ -117,7 +117,7 @@ func sendAggregatedCard(webhookURL, title, content, note string, template CardTe
 // template: header background color (use constants above)
 func SendCard(title, content, note string, template CardTemplate) error {
 	xl := xlog.New()
-	if *helper.Cfg.Feishu.Enable == false {
+	if !*helper.Cfg.Feishu.Enable {
 		xl.Debugf("feishu disable: %v %v %v", title, content, note)
 		return nil
 	}
@@ -201,7 +201,7 @@ func sendCard(webhookURL, title, content, note, templateColor string) error {
 
 	return send(webhookURL, payload)
 }
-
+/*
 // sendSimpleText sends plain text message (kept for compatibility or simple logs)
 func sendSimpleText(webhookURL, text string) error {
 	xl := xlog.New()
@@ -219,6 +219,7 @@ func sendSimpleText(webhookURL, text string) error {
 
 	return send(webhookURL, payload)
 }
+*/
 
 // send is the shared HTTP sender
 func send(webhookURL string, payload map[string]interface{}) error {
