@@ -381,7 +381,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 
 			var needUpdateUsers []string
 			for _, user := range defaultBandwidthUsers {
-				fmt.Println(onlineUsers, user, needUpdateUsers)
+				log.Infof("online users:%v user: %v need update users: %v", onlineUsers, user, needUpdateUsers)
 				if slices.Contains(onlineUsers, user) {
 					needUpdateUsers = append(needUpdateUsers, user)
 				}

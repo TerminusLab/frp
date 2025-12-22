@@ -2,15 +2,16 @@ package auth
 
 import (
 	"bytes"
-	"context"
+	//	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
 
-	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/pkg/util/feishu"
+	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/hashicorp/go-retryablehttp"
 )
 
@@ -23,15 +24,47 @@ func SendRequest(requestURL string, requestData []byte) ([]byte, error) {
 	retryClient.RetryWaitMin = 500 * time.Millisecond
 	retryClient.RetryWaitMax = 3 * time.Second
 	retryClient.Backoff = retryablehttp.DefaultBackoff
+	retryClient.CheckRetry = retryablehttp.DefaultRetryPolicy
+	retryClient.Logger = &retryableLogger{xl: xl}
+	retryClient.HTTPClient.Timeout = 5 * time.Second
 
-	retryClient.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
-		if resp != nil && resp.StatusCode == http.StatusRequestTimeout {
-			return true, nil
+	/*
+		retryClient.ResponseLogHook = func(logger retryablehttp.Logger, resp *http.Response) {
+			if resp == nil || resp.Body == nil {
+				return
+			}
+
+			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
+				xl.Infof("client: intermediate response status: %s (success, body not logged)", resp.Status)
+				return
+			}
+
+			bodyBytes, err := io.ReadAll(resp.Body)
+			if err != nil {
+				xl.Warnf("client: failed to read intermediate error response body: %v", err)
+				return
+			}
+
+			resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+			xl.Infof("client: intermediate ERROR response status: %s, body: %s", resp.Status, string(bodyBytes))
 		}
-		return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
-	}
+	*/
 
-	retryClient.Logger = &retryableLogger{xl: xlog.New()}
+	retryClient.ErrorHandler = func(resp *http.Response, err error, retries int) (*http.Response, error) {
+		if resp != nil && resp.Body != nil {
+			bodyBytes, readErr := io.ReadAll(resp.Body)
+			if readErr == nil {
+				// Restore body so that the caller can read it again
+				resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+				xl.Infof("client: final ERROR response status: %s, body: %s", resp.Status, string(bodyBytes))
+			} else {
+				xl.Warnf("client: failed to read final error response body: %v", readErr)
+			}
+		}
+		// Return the original resp and err – this keeps the request as failed
+		return resp, err
+	}
 
 	req, err := retryablehttp.NewRequest(http.MethodPost, requestURL, bytes.NewReader(requestData))
 	if err != nil {
@@ -41,6 +74,7 @@ func SendRequest(requestURL string, requestData []byte) ([]byte, error) {
 	req.Header.Set("Content-Type", "application/json")
 
 	xl.Infof("client: sending request to %s, method: %s", req.URL.String(), req.Method)
+	xl.Infof("client: request body: %s", string(requestData))
 
 	resp, err := retryClient.Do(req)
 	if err != nil {
@@ -61,7 +95,7 @@ func SendRequest(requestURL string, requestData []byte) ([]byte, error) {
 		return bds, nil
 	}
 
-	return nil, errors.New(resp.Status)
+	return bds, errors.New(resp.Status)
 }
 
 type retryableLogger struct {
@@ -69,22 +103,18 @@ type retryableLogger struct {
 }
 
 func (l *retryableLogger) Error(msg string, keysAndValues ...interface{}) {
-	//l.xl.Errorf(msg, keysAndValues...)
 	l.xl.Errorf("%s %v", msg, keysAndValues)
 }
 
 func (l *retryableLogger) Info(msg string, keysAndValues ...interface{}) {
-	//l.xl.Infof(msg, keysAndValues...)
 	l.xl.Infof("%s %v", msg, keysAndValues)
 }
 
 func (l *retryableLogger) Debug(msg string, keysAndValues ...interface{}) {
-	//l.xl.Debugf(msg, keysAndValues...)
 	l.xl.Debugf("%s %v", msg, keysAndValues)
 }
 
 func (l *retryableLogger) Warn(msg string, keysAndValues ...interface{}) {
-	//l.xl.Warnf(msg, keysAndValues...)
 	l.xl.Warnf("%s %v", msg, keysAndValues)
 }
 
@@ -117,31 +147,35 @@ func Verify(jwsVerifyURL string, jws string, user string) (bool, error) {
 	}
 	reqBytes, err := json.Marshal(vr)
 	if err != nil {
-		feishu.SendError(title, user + " **Marshal Error**")
+		feishu.SendError(title, user+" **Marshal Error**")
 		xl.Warnf("marshal error: %v", err)
 		return false, err
 	}
 
 	respBytes, err := SendRequest(jwsVerifyURL, reqBytes)
 	if err != nil {
-		feishu.SendError(title, user + " **Failed to Send JWS Verification Request**")
+		content := fmt.Sprintf("%s **JWS Verification Failed**", user)
+		if respBytes != nil {
+			content += fmt.Sprintf("\n**%s**", string(respBytes))
+		}
+		feishu.SendError(title, content)
 		xl.Warnf("send request error: %v", err)
 		return false, err
 	}
 
 	var resp VerifyResponse
 	if err := json.Unmarshal(respBytes, &resp); err != nil {
-		feishu.SendError(title, user + " **Unmarshal Error**")
+		feishu.SendError(title, user+" **Unmarshal Error**")
 		xl.Warnf("unmarshal error: %v", err)
 		return false, err
 	}
 
 	if !resp.Verify {
-		feishu.SendError(title, user + " **Verify False**")
+		feishu.SendError(title, user+" **Verify False**")
 		return false, errors.New("verify false")
 	}
 	if resp.Payload.Name != user {
-		feishu.SendError(title, user + " **Does Not Match With JWS Signer ** " + resp.Payload.Name)
+		feishu.SendError(title, user+" **Does Not Match With JWS Signer ** "+resp.Payload.Name)
 		return false, errors.New("signer not match")
 	}
 
