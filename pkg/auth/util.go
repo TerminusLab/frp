@@ -156,7 +156,7 @@ func Verify(jwsVerifyURL string, jws string, user string) (bool, error) {
 
 	_, _, err := jwt.NewParser().ParseUnverified(jws, jwt.MapClaims{})
 	if err != nil {
-		xl.Warnf("invalid jws format: %v", err)
+		xl.Warnf("invalid jws format: %v, jws=%s", err, jws)
 		return false, fmt.Errorf("invalid jws format: %w", err)
 	}
 
