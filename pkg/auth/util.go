@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/hashicorp/go-retryablehttp"
 
 	"github.com/fatedier/frp/pkg/util/feishu"
@@ -21,7 +22,7 @@ func SendRequest(requestURL string, requestData []byte) ([]byte, error) {
 
 	retryClient := retryablehttp.NewClient()
 
-	retryClient.RetryMax = 2
+	retryClient.RetryMax = 1
 	retryClient.RetryWaitMin = 500 * time.Millisecond
 	retryClient.RetryWaitMax = 3 * time.Second
 	retryClient.Backoff = retryablehttp.DefaultBackoff
@@ -142,6 +143,22 @@ func Verify(jwsVerifyURL string, jws string, user string) (bool, error) {
 	title := "JWS Verification"
 	xl := xlog.New()
 	xl.Infof("Verify request: url=%s, user=%s", jwsVerifyURL, user)
+
+	if user == "" {
+		xl.Warnf("user is empty")
+		return false, errors.New("user is empty")
+	}
+
+	if jws == "" {
+		xl.Warnf("jws is empty")
+		return false, errors.New("jws is empty")
+	}
+
+	_, _, err := jwt.NewParser().ParseUnverified(jws, jwt.MapClaims{})
+	if err != nil {
+		xl.Warnf("invalid jws format: %v", err)
+		return false, fmt.Errorf("invalid jws format: %w", err)
+	}
 
 	vr := VerifyRequest{
 		Jws: jws,
