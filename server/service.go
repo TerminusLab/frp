@@ -344,34 +344,13 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	}
 	svr.rc.NatHoleController = nc
 
-	go svr.limiterManager.UpdateLoop()
+	go svr.limiterManager.UpdateLoop(func() []string {
+		return svr.ctlManager.GetUsers()
+	})
 	go func() {
 		tick := time.NewTicker(30 * time.Minute)
 		defer tick.Stop()
-		/*
-			for {
-				select {
-				case <-tick.C:
-					log.Infof("tickerrrrrrrrrrrrrrrrrrrrrrrrrrrrr")
-					onlineUsers := svr.ctlManager.GetUsers()
-					log.Infof("online users:%v", onlineUsers)
-					defaultBandwidthUsers := svr.limiterManager.GetUserUsingDefaultBandwidth()
-					log.Infof("default bandwidth users:%v", defaultBandwidthUsers)
 
-					var needUpdateUsers []string
-					for _, user := range defaultBandwidthUsers {
-						fmt.Println(onlineUsers, user, needUpdateUsers)
-						if slices.Contains(onlineUsers, user) {
-							needUpdateUsers = append(needUpdateUsers, user)
-						}
-					}
-					log.Infof("need update users : %v", needUpdateUsers)
-					for _, user := range needUpdateUsers {
-						svr.limiterManager.UpdateLimiterByTerminusName(user)
-					}
-				}
-			}
-		*/
 		for range tick.C {
 			log.Infof("tickerrrrrrrrrrrrrrrrrrrrrrrrrrrrr")
 			onlineUsers := svr.ctlManager.GetUsers()
@@ -673,6 +652,8 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		// block until control closed
 		ctl.WaitClosed()
 		svr.ctlManager.Del(loginMsg.RunID, ctl)
+
+		svr.limiterManager.RemoveLimiter(loginMsg.User)
 	}()
 	return nil
 }
