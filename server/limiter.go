@@ -119,15 +119,26 @@ func (lm *LimiterManager) GetRateLimiter(terminusName string, limitBytes int64, 
 	return limiter
 }
 
-func (lm *LimiterManager) UpdateLimiterByGroup(terminusNames []string, limitBytes int64, burstBytes int) {
+func (lm *LimiterManager) UpdateLimiterByGroup(clusterUsers []string, limitBytes int64, burstBytes int) {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 
-	for i := range terminusNames {
-		if l, ok := lm.rateLimiter[terminusNames[i]]; ok {
+	updatedCount := 0
+	skippedCount := 0
+	for i := range clusterUsers {
+		if l, ok := lm.rateLimiter[clusterUsers[i]]; ok {
+			// User is connected to this server, update their limiter
 			l.SetLimit(rate.Limit(float64(limitBytes)))
 			l.SetBurst(burstBytes)
+			updatedCount++
+		} else {
+			// User is not connected to this server, skip (they will be updated by their own frp server)
+			skippedCount++
 		}
+	}
+	if skippedCount > 0 {
+		xl := xlog.New()
+		xl.Debugf("UpdateLimiterByGroup: updated %d local users, skipped %d users (connected to other frp servers)", updatedCount, skippedCount)
 	}
 }
 
@@ -175,59 +186,61 @@ func (lm *LimiterManager) UpdateLoop(getOnlineUsers func() []string) {
 }
 
 func (lm *LimiterManager) GetBandwidthByTerminusName(terminusName string) (int64, []string, error) {
-	var limitBytes int64
-	var terminusNames []string
 	xl := xlog.New()
 	respBody, err := lm.GetCommon(helper.Cfg.Cloud.URL+"/v1/resource/clusterUsers", []byte("terminusName="+terminusName))
 	if err != nil {
-		xl.Warnf("Get clsuter users: %v", err)
-		return limitBytes, terminusNames, err
+		xl.Warnf("Get cluster users: %v", err)
+		return 0, nil, err
 	}
 	xl.Infof(respBody)
 	var response Response
 	err = json.Unmarshal([]byte(respBody), &response)
 	if err != nil {
-		xl.Warnf("Error: %v", err)
-		return limitBytes, terminusNames, err
+		xl.Warnf("Error unmarshaling response: %v", err)
+		return 0, nil, err
 	}
 	xl.Debugf("response: %v", response)
-	if response.Code == 200 && response.Data.TerminusID != "" {
-		parsedUUID, err := uuid.Parse(response.Data.TerminusID)
-		if err != nil {
-			xl.Warnf("Invalid uuid %v", response.Data.TerminusID)
-			return limitBytes, terminusNames, err
-		}
-		xl.Warnf("%v %v", response.Data.TerminusID, parsedUUID)
-		//		terminusId := parsedUUID.String()
-		for _, v := range response.Data.Users {
-			terminusNames = append(terminusNames, v.TerminusName)
-		}
-		xl.Infof("%v", terminusNames)
-		if !slices.Contains(terminusNames, terminusName) {
-			return limitBytes, terminusNames, errors.New("invalid response")
-		}
-		downBandwidth, err := convertMbToMBAndKB(response.Data.DownBandwidth)
-		if err != nil {
-			xl.Warnf("AAAAAAAAAAAAAAAAAAAAAAA %v %v", err, response.Data.DownBandwidth)
-			return limitBytes, terminusNames, err
-		}
-		bd, err := types.NewBandwidthQuantity(downBandwidth)
-		if err != nil {
-			xl.Warnf("VVVVVVVVVVVVVVVVVVVVVVV %v %v", err, response.Data.DownBandwidth)
-			return limitBytes, terminusNames, err
-		}
-
-		limitBytes := bd.Bytes()
-		count := len(terminusNames)
-		if count > 0 {
-			limitBytes /= int64(count)
-		}
-		xl.Infof("all: %v, div: %v", bd.Bytes(), limitBytes)
-		return limitBytes, terminusNames, nil
+	if response.Code != 200 || response.Data.TerminusID == "" {
+		xl.Warnf("invalid response for %v: code=%v, terminusID=%v", terminusName, response.Code, response.Data.TerminusID)
+		return 0, nil, errors.New("invalid response")
 	}
 
-	xl.Warnf("invalid  response for %v", terminusName)
-	return limitBytes, terminusNames, errors.New("invalid response")
+	parsedUUID, err := uuid.Parse(response.Data.TerminusID)
+	if err != nil {
+		xl.Warnf("Invalid uuid %v", response.Data.TerminusID)
+		return 0, nil, err
+	}
+	xl.Debugf("parsed UUID: %v", parsedUUID)
+
+	clusterUsers := make([]string, 0, len(response.Data.Users))
+	for _, v := range response.Data.Users {
+		clusterUsers = append(clusterUsers, v.TerminusName)
+	}
+	xl.Infof("cluster users: %v", clusterUsers)
+
+	if !slices.Contains(clusterUsers, terminusName) {
+		xl.Warnf("terminusName %v not found in cluster users %v", terminusName, clusterUsers)
+		return 0, nil, errors.New("terminusName not found in cluster users")
+	}
+
+	downBandwidth, err := convertMbToMBAndKB(response.Data.DownBandwidth)
+	if err != nil {
+		xl.Warnf("Error converting bandwidth %v: %v", response.Data.DownBandwidth, err)
+		return 0, nil, err
+	}
+	bd, err := types.NewBandwidthQuantity(downBandwidth)
+	if err != nil {
+		xl.Warnf("Error creating bandwidth quantity %v: %v", downBandwidth, err)
+		return 0, nil, err
+	}
+
+	limitBytes := bd.Bytes()
+	count := len(clusterUsers)
+	if count > 0 {
+		limitBytes /= int64(count)
+	}
+	xl.Infof("total bandwidth: %v bytes/s, per user: %v bytes/s (cluster size: %d)", bd.Bytes(), limitBytes, count)
+	return limitBytes, clusterUsers, nil
 }
 
 func (lm *LimiterManager) GetCommon(requestURL string, requestData []byte) (string, error) {
@@ -290,9 +303,9 @@ func (lm *LimiterManager) UpdateLimiterAfter(terminusName string) {
 	go func() {
 		<-timer
 		xl.Infof("update limiter for %v", terminusName)
-		limitBytes, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
+		limitBytes, clusterUsers, err := lm.GetBandwidthByTerminusName(terminusName)
 		if err == nil {
-			lm.UpdateLimiterByGroup(terminusNames, limitBytes, int(1*limitBytes))
+			lm.UpdateLimiterByGroup(clusterUsers, limitBytes, int(1*limitBytes))
 		}
 	}()
 }
@@ -322,9 +335,9 @@ func (lm *LimiterManager) UpdateLimiterByTerminusNames(terminusNames []string) {
 		}
 
 		terminusName := terminusNames[i]
-		limitBytes, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
+		limitBytes, clusterUsers, err := lm.GetBandwidthByTerminusName(terminusName)
 		if err == nil {
-			lm.UpdateLimiterByGroup(terminusNames, limitBytes, int(1*limitBytes))
+			lm.UpdateLimiterByGroup(clusterUsers, limitBytes, int(1*limitBytes))
 			xl.Infof("update %vs bandwidth limit to %v", terminusName, limitBytes)
 		} else {
 			xl.Warnf("update bandwidth for %v(err: %v)", terminusName, err)
@@ -335,29 +348,33 @@ func (lm *LimiterManager) UpdateLimiterByTerminusNames(terminusNames []string) {
 
 func (lm *LimiterManager) UpdateLimiterByTerminusName(terminusName string) {
 	xl := xlog.New()
-	bandwidth, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
+	bandwidth, clusterUsers, err := lm.GetBandwidthByTerminusName(terminusName)
 	if err == nil {
-		lm.UpdateLimiterByGroup(terminusNames, bandwidth, int(1*bandwidth))
-		xl.Infof("--------------> %v %v", terminusNames, bandwidth)
+		lm.UpdateLimiterByGroup(clusterUsers, bandwidth, int(1*bandwidth))
+		xl.Infof("updated bandwidth for cluster users %v to %v bytes/s", clusterUsers, bandwidth)
+	} else {
+		xl.Warnf("failed to update bandwidth for %v: %v", terminusName, err)
 	}
 }
 
 func (lm *LimiterManager) GetLimiterByTerminusName(terminusName string) *rate.Limiter {
 	xl := xlog.New()
 	limitBytes := GetDefaultBandwidth()
-	bandwidth, terminusNames, err := lm.GetBandwidthByTerminusName(terminusName)
-	if err == nil {
-		limitBytes = bandwidth
-		lm.UpdateLimiterByGroup(terminusNames, limitBytes, int(1*limitBytes))
-	} else {
-		xl.Infof("USING DEFAULT BANDWIDTH: %v", limitBytes)
-		go func() {
-			lm.UpdateLimiterAfter(terminusName)
-		}()
-	}
 
 	limiter := lm.GetRateLimiter(terminusName, limitBytes, int(1*limitBytes))
-	xl.Infof("look %v %v %p", terminusName, limitBytes, limiter)
+	xl.Infof("get limiter for %v: limit=%v bytes/s (default, will update async), limiter=%p", terminusName, limitBytes, limiter)
+
+	// Update bandwidth asynchronously to avoid blocking login
+	go func() {
+		bandwidth, clusterUsers, err := lm.GetBandwidthByTerminusName(terminusName)
+		if err == nil {
+			lm.UpdateLimiterByGroup(clusterUsers, bandwidth, int(1*bandwidth))
+			xl.Infof("updated limiter for %v: limit=%v bytes/s", terminusName, bandwidth)
+		} else {
+			xl.Infof("failed to get bandwidth for %v, using default: %v", terminusName, limitBytes)
+			lm.UpdateLimiterAfter(terminusName)
+		}
+	}()
 
 	return limiter
 }

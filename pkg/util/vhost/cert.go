@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
+	"golang.org/x/sync/singleflight"
 
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/xlog"
@@ -34,9 +35,35 @@ type Cert struct {
 }
 
 var (
-	certs = make(map[string]Cert)
-	mu    sync.RWMutex
+	certs         = make(map[string]Cert)
+	mu            sync.RWMutex
+	httpClient    *retryablehttp.Client
+	httpClientMu  sync.Once
+	downloadGroup singleflight.Group
 )
+
+func getHTTPClient() *retryablehttp.Client {
+	httpClientMu.Do(func() {
+		httpClient = retryablehttp.NewClient()
+		httpClient.HTTPClient.Timeout = 6 * time.Second
+		httpClient.RetryMax = 1
+		httpClient.RetryWaitMin = 1 * time.Second
+		httpClient.RetryWaitMax = 2 * time.Second
+		httpClient.RequestLogHook = func(l retryablehttp.Logger, r *http.Request, attemptNum int) {
+			if attemptNum != 0 {
+				xl := xlog.New()
+				xl.Infof("RequestLogHook: %s %s (attempt %d)", r.Method, r.URL, attemptNum)
+			}
+		}
+		httpClient.ResponseLogHook = func(l retryablehttp.Logger, resp *http.Response) {
+			if resp.StatusCode != http.StatusOK {
+				xl := xlog.New()
+				xl.Warnf("ResponseLogHook: status=%d, url=%s", resp.StatusCode, resp.Request.URL)
+			}
+		}
+	})
+	return httpClient
+}
 
 func AddCertToCache(key string, cert Cert) {
 	mu.Lock()
@@ -58,57 +85,35 @@ func GetCertRequest(name, user, password, theurl string) (string, error) {
 	bodyReader := bytes.NewReader([]byte{})
 	requestURL := theurl + "/download?name="
 	requestURL += url.QueryEscape(name)
-	xl.Infof(http.MethodGet, requestURL)
+	xl.Infof("Downloading certificate for terminusName=%v, url=%s %s", name, http.MethodGet, requestURL)
 
 	req, err := retryablehttp.NewRequest(http.MethodGet, requestURL, bodyReader)
 	if err != nil {
-		xl.Infof("client: could not create request: %s\n", err)
+		xl.Warnf("Failed to create certificate download request for terminusName=%v, url=%s: %v", name, requestURL, err)
 		return ret, err
 	}
-	/*
-		auth := fmt.Sprintf("%s:%s", user, password)
-		encodedAuth := base64.StdEncoding.EncodeToString([]byte(auth))
-		req.Header.Set("Authorization", "Basic " + encodedAuth)
-	*/
 	req.Header.Set("Authorization", httppkg.BasicAuth(user, password))
 
-	client := retryablehttp.NewClient()
-	client.HTTPClient.Timeout = 15 * time.Second
-	client.RetryMax = 1
-	client.RetryWaitMin = 1 * time.Second
-	client.RetryWaitMax = 10 * time.Second
-	client.RequestLogHook = func(l retryablehttp.Logger, r *http.Request, attemptNum int) {
-		if attemptNum != 0 {
-			// l.Printf("Request: %s %s (attempt %d)", r.Method, r.URL, attemptNum)
-			xl.Infof("RequestLogHook: %s %s (attempt %d)", r.Method, r.URL, attemptNum)
-			//			SendFeishu(fmt.Sprintf("retry -> %s", r.URL))
-		}
-	}
-
-	client.ResponseLogHook = func(l retryablehttp.Logger, resp *http.Response) {
-		if resp.StatusCode != http.StatusOK {
-			// l.Printf("Response: %d", resp.StatusCode)
-			xl.Infof("ResponseLogHook: %+v", resp)
-			//			SendFeishu(fmt.Sprintf("status: %s -> %s", resp.Status, resp.Request.URL))
-		}
-	}
+	client := getHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
-		xl.Infof("client: error making http request: %s\n", err)
+		xl.Warnf("Certificate download request failed for terminusName=%v, url=%s: %v", name, requestURL, err)
 		return ret, err
-	}
-	xl.Infof("%+v", resp)
-	if resp.StatusCode != http.StatusOK {
-		// SendFeishu(resp.Status + " -> " + requestURL)
-		return ret, errors.New(resp.Status)
 	}
 	defer resp.Body.Close()
 
+	xl.Debugf("Certificate download response for terminusName=%v: status=%d, url=%s", name, resp.StatusCode, requestURL)
+	if resp.StatusCode != http.StatusOK {
+		xl.Warnf("Certificate download failed for terminusName=%v: status=%d, url=%s", name, resp.StatusCode, requestURL)
+		return ret, errors.New(resp.Status)
+	}
+
 	bds, err := io.ReadAll(resp.Body)
 	if err != nil {
+		xl.Warnf("Failed to read certificate response body for terminusName=%v: %v", name, err)
 		return ret, err
 	}
-	xl.Infof(string(bds))
+	xl.Infof("Certificate download response body for terminusName=%v: %s", name, string(bds))
 
 	return string(bds), nil
 }
@@ -152,7 +157,7 @@ func IsExpired(endDate string) (bool, error) {
 	xl := xlog.New()
 	parsedTime, err := time.Parse(time.RFC3339, endDate)
 	if err != nil {
-		xl.Errorf("Error parsing date:", err)
+		xl.Errorf("Failed to parse certificate endDate=%v: %v", endDate, err)
 		return false, err
 	}
 
@@ -160,10 +165,10 @@ func IsExpired(endDate string) (bool, error) {
 	advanced := currentTime.AddDate(0, 0, 7)
 
 	if parsedTime.Before(advanced) {
-		xl.Infof("The end date is before the current time + 7.")
+		xl.Debugf("Certificate expired: endDate=%v, currentTime=%v, threshold=%v (currentTime + 7 days)", endDate, currentTime, advanced)
 		return true, nil
 	}
-	xl.Infof("The end date is not before the current time + 7.")
+	xl.Debugf("Certificate valid: endDate=%v, currentTime=%v, threshold=%v", endDate, currentTime, advanced)
 	return false, nil
 }
 
@@ -212,32 +217,56 @@ func GetCert(name string) (Cert, error) {
 		return cert, err
 	}
 
+	// Check cache first
 	if c, ok := GetCertFromCache(name); ok {
 		isExpired, err := IsExpired(c.EndDate)
 		if err == nil && !isExpired {
+			xl.Debugf("Using cached certificate for terminusName=%v, endDate=%v", name, c.EndDate)
 			return c, nil
 		}
-		xl.Warnf("is expired: %v err: %v", isExpired, err)
+		if isExpired {
+			xl.Infof("Cached certificate expired for terminusName=%v, endDate=%v, will download new one", name, c.EndDate)
+		} else {
+			xl.Warnf("Error checking certificate expiration for terminusName=%v, endDate=%v: %v", name, c.EndDate, err)
+		}
 	}
 
-	respBody, err := GetCertRequest(name, helper.Cfg.CertDownload.User, helper.Cfg.CertDownload.Password, helper.Cfg.CertDownload.URL)
+	// Use singleflight to prevent concurrent downloads of the same certificate
+	result, err, _ := downloadGroup.Do(name, func() (interface{}, error) {
+		// Double-check cache after acquiring lock (another goroutine might have downloaded it)
+		if c, ok := GetCertFromCache(name); ok {
+			isExpired, err := IsExpired(c.EndDate)
+			if err == nil && !isExpired {
+				return c, nil
+			}
+		}
+
+		respBody, err := GetCertRequest(name, helper.Cfg.CertDownload.User, helper.Cfg.CertDownload.Password, helper.Cfg.CertDownload.URL)
+		if err != nil {
+			xl.Warnf("Failed to download certificate for terminusName=%v: %v", name, err)
+			return nil, err
+		}
+
+		var response Response
+		err = json.Unmarshal([]byte(respBody), &response)
+		if err != nil {
+			xl.Warnf("Failed to unmarshal certificate response for terminusName=%v, responseBody length=%d: %v", name, len(respBody), err)
+			return nil, err
+		}
+
+		if response.Success {
+			AddCertToCache(name, response.Data)
+			xl.Infof("Successfully downloaded and cached certificate for terminusName=%v, zone=%v, endDate=%v", name, response.Data.Zone, response.Data.EndDate)
+			return response.Data, nil
+		}
+
+		xl.Warnf("Certificate download returned error for terminusName=%v: %v", name, response.Message)
+		return nil, errors.New(response.Message)
+	})
+
 	if err != nil {
 		return cert, err
 	}
 
-	xl.Infof("%v %v", name, respBody)
-
-	var response Response
-	err = json.Unmarshal([]byte(respBody), &response)
-	if err != nil {
-		xl.Warnf("Error: %v", err)
-		return cert, err
-	}
-
-	if response.Success {
-		AddCertToCache(name, response.Data)
-		return response.Data, nil
-	}
-
-	return cert, errors.New(response.Message)
+	return result.(Cert), nil
 }
