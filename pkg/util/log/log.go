@@ -15,7 +15,9 @@
 package log
 
 import (
+	"io"
 	"os"
+	"strings"
 
 	"github.com/fatedier/golib/log"
 )
@@ -28,6 +30,22 @@ func init() {
 		log.AddCallerSkip(1),
 		log.WithLevel(log.InfoLevel),
 	)
+}
+
+// yamuxLogWriter implements io.Writer and forwards yamux logs to FRP's logger with [yamux] prefix.
+type yamuxLogWriter struct{}
+
+func (w *yamuxLogWriter) Write(p []byte) (n int, err error) {
+	if len(p) > 0 {
+		Debugf("[yamux] %s", strings.TrimSpace(string(p)))
+	}
+	return len(p), nil
+}
+
+// YamuxLogWriter returns an io.Writer that writes yamux logs to FRP's logger.
+// Yamux logs are written at Debug level with [yamux] prefix. Set log.level = "debug" to see them.
+func YamuxLogWriter() io.Writer {
+	return &yamuxLogWriter{}
 }
 
 func InitLogger(logPath string, levelStr string, maxDays int, disableLogColor bool) {
