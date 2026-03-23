@@ -15,6 +15,8 @@
 package v1
 
 import (
+	"time"
+
 	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/pkg/config/types"
@@ -24,7 +26,13 @@ import (
 type ServerConfig struct {
 	APIMetadata
 
-	Auth AuthServerConfig `json:"auth,omitempty"`
+	UpTime           int64                  `json:"upTime,omitempty"`
+	EnableMemReport  *bool                  `json:"enableMemReport,omitempty"`
+	BandwidthLimiter BandwidthLimiterConfig `json:"bandwidthLimiter,omitempty"`
+	Cloud            CloudConfig            `json:"cloud,omitempty"`
+	CertDownload     CertDownloadConfig     `json:"certDownload,omitempty"`
+	Feishu           FeishuConfig           `json:"feishu,omitempty"`
+	Auth             AuthServerConfig       `json:"auth,omitempty"`
 	// BindAddr specifies the address that the server binds to. By default,
 	// this value is "0.0.0.0".
 	BindAddr string `json:"bindAddr,omitempty"`
@@ -95,10 +103,17 @@ type ServerConfig struct {
 
 	AllowPorts []types.PortsRange `json:"allowPorts,omitempty"`
 
+	OlaresZones []string `json:"olaresZones,omitempty"`
+
 	HTTPPlugins []HTTPPluginOptions `json:"httpPlugins,omitempty"`
 }
 
 func (c *ServerConfig) Complete() {
+	c.UpTime = time.Now().UnixMilli()
+	c.EnableMemReport = util.EmptyOr(c.EnableMemReport, lo.ToPtr(true))
+	c.Cloud.Complete()
+	c.Feishu.Complete()
+	c.BandwidthLimiter.Complete()
 	c.Auth.Complete()
 	c.Log.Complete()
 	c.Transport.Complete()
@@ -120,6 +135,42 @@ func (c *ServerConfig) Complete() {
 	c.UserConnTimeout = util.EmptyOr(c.UserConnTimeout, 10)
 	c.UDPPacketSize = util.EmptyOr(c.UDPPacketSize, 1500)
 	c.NatHoleAnalysisDataReserveHours = util.EmptyOr(c.NatHoleAnalysisDataReserveHours, 7*24)
+}
+
+type BandwidthLimiterConfig struct {
+	DefaultBandwidth types.BandwidthQuantity `json:"defaultBandwidth,omitempty"`
+}
+
+func (c *BandwidthLimiterConfig) Complete() {
+}
+
+type CloudConfig struct {
+	URL                   string `json:"url,omitempty"`
+	Token                 string `json:"token,omitempty"`
+	ReportURL             string `json:"reportUrl,omitempty"`
+	ReportIntervalSeconds int    `json:"reportIntervalSeconds,omitempty"`
+}
+
+func (c *CloudConfig) Complete() {
+	c.ReportIntervalSeconds = util.EmptyOr(c.ReportIntervalSeconds, 5*6)
+}
+
+type CertDownloadConfig struct {
+	URL      string `json:"url,omitempty"`
+	User     string `json:"user,omitempty"`
+	Password string `json:"password,omitempty"`
+}
+
+type FeishuConfig struct {
+	Enable             *bool  `json:"enable,omitempty"`
+	URL                string `json:"url,omitempty"`
+	Sender             string `json:"sender,omitempty"`
+	WaitDurationSecond uint   `json:"waitDuration,omitempty"`
+}
+
+func (c *FeishuConfig) Complete() {
+	c.Enable = util.EmptyOr(c.Enable, lo.ToPtr(true))
+	c.WaitDurationSecond = util.EmptyOr(c.WaitDurationSecond, 120)
 }
 
 type AuthServerConfig struct {
