@@ -479,6 +479,12 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		return
 	}
 
+	if len(ctl.serverCfg.OlaresZones) > 0 {
+		if err = validateOlaresProxyCustomDomains(pxyConf, ctl.serverCfg.OlaresZones, ctl.loginMsg.User); err != nil {
+			return
+		}
+	}
+
 	// User info
 	userInfo := plugin.UserInfo{
 		User:  ctl.loginMsg.User,

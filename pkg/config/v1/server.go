@@ -103,6 +103,8 @@ type ServerConfig struct {
 
 	AllowPorts []types.PortsRange `json:"allowPorts,omitempty"`
 
+	OlaresZones []string `json:"olaresZones,omitempty"`
+
 	HTTPPlugins []HTTPPluginOptions `json:"httpPlugins,omitempty"`
 }
 
