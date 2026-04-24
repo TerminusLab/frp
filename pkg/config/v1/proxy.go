@@ -239,14 +239,14 @@ const (
 )
 
 var proxyConfigTypeMap = map[ProxyType]reflect.Type{
-	ProxyTypeTCP:    reflect.TypeFor[TCPProxyConfig](),
-	ProxyTypeUDP:    reflect.TypeFor[UDPProxyConfig](),
-	ProxyTypeHTTP:   reflect.TypeFor[HTTPProxyConfig](),
-	ProxyTypeHTTPS:  reflect.TypeFor[HTTPSProxyConfig](),
-	ProxyTypeTCPMUX: reflect.TypeFor[TCPMuxProxyConfig](),
-	ProxyTypeSTCP:   reflect.TypeFor[STCPProxyConfig](),
-	ProxyTypeXTCP:   reflect.TypeFor[XTCPProxyConfig](),
-	ProxyTypeSUDP:   reflect.TypeFor[SUDPProxyConfig](),
+	// ProxyTypeTCP:    reflect.TypeFor[TCPProxyConfig](),
+	// ProxyTypeUDP:    reflect.TypeFor[UDPProxyConfig](),
+	ProxyTypeHTTP:  reflect.TypeFor[HTTPProxyConfig](),
+	ProxyTypeHTTPS: reflect.TypeFor[HTTPSProxyConfig](),
+	// ProxyTypeTCPMUX: reflect.TypeFor[TCPMuxProxyConfig](),
+	// ProxyTypeSTCP:   reflect.TypeFor[STCPProxyConfig](),
+	// ProxyTypeXTCP:   reflect.TypeFor[XTCPProxyConfig](),
+	// ProxyTypeSUDP:   reflect.TypeFor[SUDPProxyConfig](),
 }
 
 func NewProxyConfigurerByType(proxyType ProxyType) ProxyConfigurer {

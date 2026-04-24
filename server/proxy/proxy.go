@@ -295,11 +295,11 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	name := pxy.GetName()
 	proxyType := cfg.Type
 	metrics.Server.OpenConnection(name, proxyType)
-	inCount, outCount, _ := libio.Join(local, userConn)
+	mLocal := newMetricsTrafficRW(name, proxyType, local, false)
+	mUser := newMetricsTrafficRW(name, proxyType, userConn, true)
+	inCount, outCount, _ := libio.Join(mLocal, mUser)
 	metrics.Server.CloseConnection(name, proxyType)
-	metrics.Server.AddTrafficIn(name, proxyType, inCount)
-	metrics.Server.AddTrafficOut(name, proxyType, outCount)
-	xl.Debugf("join connections closed")
+	xl.Debugf("join connections closed, traffic in: %d out: %d", inCount, outCount)
 }
 
 type Options struct {
@@ -311,6 +311,8 @@ type Options struct {
 	Configurer         v1.ProxyConfigurer
 	ServerCfg          *v1.ServerConfig
 	EncryptionKey      []byte
+	// Limiter from server-side bandwidth policy; when set, overrides per-proxy server bandwidth limit.
+	Limiter *rate.Limiter
 }
 
 func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
@@ -318,9 +320,13 @@ func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
 	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(configurer.GetBaseConfig().Name)
 
 	var limiter *rate.Limiter
-	limitBytes := configurer.GetBaseConfig().Transport.BandwidthLimit.Bytes()
-	if limitBytes > 0 && configurer.GetBaseConfig().Transport.BandwidthLimitMode == types.BandwidthLimitModeServer {
-		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
+	if options.Limiter != nil {
+		limiter = options.Limiter
+	} else {
+		limitBytes := configurer.GetBaseConfig().Transport.BandwidthLimit.Bytes()
+		if limitBytes > 0 && configurer.GetBaseConfig().Transport.BandwidthLimitMode == types.BandwidthLimitModeServer {
+			limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
+		}
 	}
 
 	basePxy := BaseProxy{

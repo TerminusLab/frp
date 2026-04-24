@@ -44,7 +44,7 @@ func BuildClientAuth(cfg *v1.AuthClientConfig) (*ClientAuth, error) {
 		return nil, fmt.Errorf("auth config is nil")
 	}
 	resolved := *cfg
-	if resolved.Method == v1.AuthMethodToken && resolved.TokenSource != nil {
+	if (resolved.Method == v1.AuthMethodToken || resolved.Method == v1.AuthMethodJws) && resolved.TokenSource != nil {
 		token, err := resolved.TokenSource.Resolve(context.Background())
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve auth.tokenSource: %w", err)
@@ -63,6 +63,8 @@ func BuildClientAuth(cfg *v1.AuthClientConfig) (*ClientAuth, error) {
 
 func NewAuthSetter(cfg v1.AuthClientConfig) (authProvider Setter, err error) {
 	switch cfg.Method {
+	case v1.AuthMethodJws:
+		authProvider = NewJwsAuth(cfg.AdditionalScopes, cfg.Jws)
 	case v1.AuthMethodToken:
 		authProvider = NewTokenAuth(cfg.AdditionalScopes, cfg.Token)
 	case v1.AuthMethodOIDC:
@@ -102,7 +104,7 @@ func BuildServerAuth(cfg *v1.AuthServerConfig) (*ServerAuth, error) {
 		return nil, fmt.Errorf("auth config is nil")
 	}
 	resolved := *cfg
-	if resolved.Method == v1.AuthMethodToken && resolved.TokenSource != nil {
+	if (resolved.Method == v1.AuthMethodToken || resolved.Method == v1.AuthMethodJws) && resolved.TokenSource != nil {
 		token, err := resolved.TokenSource.Resolve(context.Background())
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve auth.tokenSource: %w", err)
@@ -117,6 +119,8 @@ func BuildServerAuth(cfg *v1.AuthServerConfig) (*ServerAuth, error) {
 
 func NewAuthVerifier(cfg v1.AuthServerConfig) (authVerifier Verifier) {
 	switch cfg.Method {
+	case v1.AuthMethodJws:
+		authVerifier = NewJwsAuth(cfg.AdditionalScopes, cfg.JwsVerifyURL)
 	case v1.AuthMethodToken:
 		authVerifier = NewTokenAuth(cfg.AdditionalScopes, cfg.Token)
 	case v1.AuthMethodOIDC:

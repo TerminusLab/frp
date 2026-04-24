@@ -20,5 +20,6 @@ import (
 
 var (
 	EnableMem        = aggregate.EnableMem
+	EnableMemReport  = aggregate.EnableMemReport
 	EnablePrometheus = aggregate.EnablePrometheus
 )

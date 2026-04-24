@@ -193,6 +193,8 @@ type AuthClientConfig struct {
 	// to the server. The server must have a matching token for authorization
 	// to succeed.  By default, this value is "".
 	Token string `json:"token,omitempty"`
+	// Jws carries the signed JWT string when auth.method is "jws".
+	Jws string `json:"jws,omitempty"`
 	// TokenSource specifies a dynamic source for the authorization token.
 	// This is mutually exclusive with Token field.
 	TokenSource *ValueSource         `json:"tokenSource,omitempty"`

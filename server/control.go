@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/samber/lo"
+	"golang.org/x/time/rate"
 
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
@@ -85,6 +86,15 @@ func (cm *ControlManager) GetByID(runID string) (ctl *Control, ok bool) {
 	return
 }
 
+func (cm *ControlManager) GetUsers() (users []string) {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	for _, c := range cm.ctlsByRunID {
+		users = append(users, c.sessionCtx.LoginMsg.User)
+	}
+	return
+}
+
 func (cm *ControlManager) Close() error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
@@ -117,6 +127,9 @@ type SessionContext struct {
 	ServerCfg *v1.ServerConfig
 	// client registry
 	ClientRegistry *registry.ClientRegistry
+
+	// Olares / cloud bandwidth limiter for this session (login user = terminus name).
+	Limiter *rate.Limiter
 }
 
 type Control struct {
@@ -454,6 +467,12 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		return
 	}
 
+	if len(ctl.sessionCtx.ServerCfg.OlaresZones) > 0 {
+		if err = validateOlaresProxyCustomDomains(pxyConf, ctl.sessionCtx.ServerCfg.OlaresZones, ctl.sessionCtx.LoginMsg.User); err != nil {
+			return
+		}
+	}
+
 	// User info
 	userInfo := plugin.UserInfo{
 		User:  ctl.sessionCtx.LoginMsg.User,
@@ -472,6 +491,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		Configurer:         pxyConf,
 		ServerCfg:          ctl.sessionCtx.ServerCfg,
 		EncryptionKey:      ctl.sessionCtx.EncryptionKey,
+		Limiter:            ctl.sessionCtx.Limiter,
 	})
 	if err != nil {
 		return remoteAddr, err

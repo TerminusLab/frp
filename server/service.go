@@ -22,6 +22,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
 	"time"
 
@@ -49,6 +50,7 @@ import (
 	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/group"
+	"github.com/fatedier/frp/server/helper"
 	"github.com/fatedier/frp/server/metrics"
 	"github.com/fatedier/frp/server/ports"
 	"github.com/fatedier/frp/server/proxy"
@@ -128,9 +130,13 @@ type Service struct {
 	ctx context.Context
 	// call cancel to stop service
 	cancel context.CancelFunc
+
+	limiterManager *LimiterManager
 }
 
 func NewService(cfg *v1.ServerConfig) (*Service, error) {
+	helper.Cfg = cfg
+
 	tlsConfig, err := transport.NewServerTLSConfig(
 		cfg.Transport.TLS.CertFile,
 		cfg.Transport.TLS.KeyFile,
@@ -148,6 +154,9 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		webServer = ws
 
 		modelmetrics.EnableMem()
+		if lo.FromPtr(cfg.EnableMemReport) {
+			modelmetrics.EnableMemReport()
+		}
 		if cfg.EnablePrometheus {
 			modelmetrics.EnablePrometheus()
 		}
@@ -175,6 +184,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		tlsConfig:         tlsConfig,
 		cfg:               cfg,
 		ctx:               context.Background(),
+		limiterManager:    NewLimiterManager(),
 	}
 	if webServer != nil {
 		webServer.RouteRegister(svr.registerRouteHandlers)
@@ -349,6 +359,28 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		return nil, fmt.Errorf("create nat hole controller error, %v", err)
 	}
 	svr.rc.NatHoleController = nc
+
+	go svr.limiterManager.UpdateLoop(func() []string {
+		return svr.ctlManager.GetUsers()
+	})
+	go func() {
+		tick := time.NewTicker(30 * time.Minute)
+		defer tick.Stop()
+		for range tick.C {
+			onlineUsers := svr.ctlManager.GetUsers()
+			defaultBandwidthUsers := svr.limiterManager.GetUserUsingDefaultBandwidth()
+			var needUpdateUsers []string
+			for _, user := range defaultBandwidthUsers {
+				if slices.Contains(onlineUsers, user) {
+					needUpdateUsers = append(needUpdateUsers, user)
+				}
+			}
+			for _, user := range needUpdateUsers {
+				svr.limiterManager.UpdateLimiterByTerminusName(user)
+			}
+		}
+	}()
+
 	return svr, nil
 }
 
@@ -604,6 +636,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		return err
 	}
 
+	limiter := svr.limiterManager.GetLimiterByTerminusName(loginMsg.User)
 	ctl, err := NewControl(ctx, &SessionContext{
 		RC:             svr.rc,
 		PxyManager:     svr.pxyManager,
@@ -615,6 +648,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		LoginMsg:       loginMsg,
 		ServerCfg:      svr.cfg,
 		ClientRegistry: svr.clientRegistry,
+		Limiter:        limiter,
 	})
 	if err != nil {
 		xl.Warnf("create new controller error: %v", err)
@@ -646,6 +680,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		// block until control closed
 		ctl.WaitClosed()
 		svr.ctlManager.Del(loginMsg.RunID, ctl)
+		svr.limiterManager.RemoveLimiter(loginMsg.User)
 	}()
 	return nil
 }

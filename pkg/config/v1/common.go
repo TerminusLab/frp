@@ -32,6 +32,7 @@ type AuthMethod string
 const (
 	AuthMethodToken AuthMethod = "token"
 	AuthMethodOIDC  AuthMethod = "oidc"
+	AuthMethodJws   AuthMethod = "jws"
 )
 
 // QUIC protocol options
@@ -58,6 +59,9 @@ type WebServerConfig struct {
 	User string `json:"user,omitempty"`
 	// Password specifies the password that the admin server will use for login.
 	Password string `json:"password,omitempty"`
+	// UserForLimiter / PasswordForLimiter protect bandwidth and traffic admin APIs.
+	UserForLimiter     string `json:"userForLimiter,omitempty"`
+	PasswordForLimiter string `json:"passwordForLimiter,omitempty"`
 	// AssetsDir specifies the local directory that the admin server will load
 	// resources from. If this value is "", assets will be loaded from the
 	// bundled executable using embed package.
