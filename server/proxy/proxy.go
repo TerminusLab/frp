@@ -159,7 +159,7 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 			dstAddr, dstPortStr, _ = net.SplitHostPort(dst.String())
 			dstPort, _ = strconv.Atoi(dstPortStr)
 		}
-		err := msg.WriteMsg(workConn, &msg.StartWorkConn{
+		err = msg.WriteMsg(workConn, &msg.StartWorkConn{
 			ProxyName: pxy.GetName(),
 			SrcAddr:   srcAddr,
 			SrcPort:   uint16(srcPort),
@@ -170,6 +170,7 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 		if err != nil {
 			xl.Warnf("failed to send message to work connection from pool: %v, times: %d", err, i)
 			workConn.Close()
+			workConn = nil
 		} else {
 			break
 		}
@@ -275,11 +276,11 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	name := pxy.GetName()
 	proxyType := cfg.Type
 	metrics.Server.OpenConnection(name, proxyType)
-	inCount, outCount, _ := libio.Join(local, userConn)
+	mLocal := newMetricsTrafficRW(user, name, proxyType, local, false)
+	mUser := newMetricsTrafficRW(user, name, proxyType, userConn, true)
+	inCount, outCount, _ := libio.Join(mLocal, mUser)
 	metrics.Server.CloseConnection(name, proxyType)
-	metrics.Server.AddTrafficIn(user, name, proxyType, inCount)
-	metrics.Server.AddTrafficOut(user, name, proxyType, outCount)
-	xl.Debugf("join connections closed")
+	xl.Debugf("join connections closed, traffic in: %d out: %d", inCount, outCount)
 }
 
 type Options struct {
