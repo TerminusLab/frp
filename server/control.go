@@ -47,12 +47,15 @@ type ControlManager struct {
 	// controls indexed by run id
 	ctlsByRunID map[string]*Control
 
+	limiterManager *LimiterManager
+
 	mu sync.RWMutex
 }
 
-func NewControlManager() *ControlManager {
+func NewControlManager(limiterManager *LimiterManager) *ControlManager {
 	return &ControlManager{
-		ctlsByRunID: make(map[string]*Control),
+		ctlsByRunID:    make(map[string]*Control),
+		limiterManager: limiterManager,
 	}
 }
 
@@ -66,6 +69,7 @@ func (cm *ControlManager) Add(runID string, ctl *Control) (old *Control) {
 		old.Replaced(ctl)
 	}
 	cm.ctlsByRunID[runID] = ctl
+	ctl.limiter = cm.limiterManager.GetLimiterByTerminusName(ctl.loginMsg.User)
 	return
 }
 
@@ -75,6 +79,12 @@ func (cm *ControlManager) Del(runID string, ctl *Control) {
 	defer cm.mu.Unlock()
 	if c, ok := cm.ctlsByRunID[runID]; ok && c == ctl {
 		delete(cm.ctlsByRunID, runID)
+		for _, other := range cm.ctlsByRunID {
+			if other.loginMsg.User == ctl.loginMsg.User {
+				return
+			}
+		}
+		cm.limiterManager.RemoveLimiter(ctl.loginMsg.User)
 	}
 }
 
@@ -175,7 +185,6 @@ func NewControl(
 	ctlConnEncrypted bool,
 	loginMsg *msg.Login,
 	serverCfg *v1.ServerConfig,
-	limiter *rate.Limiter,
 ) (*Control, error) {
 	poolCount := loginMsg.PoolCount
 	if poolCount > int(serverCfg.Transport.MaxPoolCount) {
@@ -197,7 +206,6 @@ func NewControl(
 		xl:            xlog.FromContextSafe(ctx),
 		ctx:           ctx,
 		doneCh:        make(chan struct{}),
-		limiter:       limiter,
 	}
 	ctl.lastPing.Store(time.Now())
 

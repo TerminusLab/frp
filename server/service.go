@@ -156,8 +156,9 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		}
 	}
 
+	limiterManager := NewLimiterManager()
 	svr := &Service{
-		ctlManager:    NewControlManager(),
+		ctlManager:    NewControlManager(limiterManager),
 		pxyManager:    proxy.NewManager(),
 		pluginManager: plugin.NewManager(),
 		rc: &controller.ResourceController{
@@ -172,7 +173,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		tlsConfig:         tlsConfig,
 		cfg:               cfg,
 		ctx:               context.Background(),
-		limiterManager:    NewLimiterManager(),
+		limiterManager:    limiterManager,
 	}
 	if webServer != nil {
 		webServer.RouteRegister(svr.registerRouteHandlers)
@@ -630,10 +631,8 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		return err
 	}
 
-	limiter := svr.limiterManager.GetLimiterByTerminusName(loginMsg.User)
-
 	// TODO(fatedier): use SessionContext
-	ctl, err := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, authVerifier, ctlConn, !internal, loginMsg, svr.cfg, limiter)
+	ctl, err := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, authVerifier, ctlConn, !internal, loginMsg, svr.cfg)
 	if err != nil {
 		xl.Warnf("create new controller error: %v", err)
 		// don't return detailed errors to client
@@ -652,8 +651,6 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		// block until control closed
 		ctl.WaitClosed()
 		svr.ctlManager.Del(loginMsg.RunID, ctl)
-
-		svr.limiterManager.RemoveLimiter(loginMsg.User)
 	}()
 	return nil
 }
